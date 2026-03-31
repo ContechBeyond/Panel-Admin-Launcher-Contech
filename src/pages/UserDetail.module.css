@@ -1,0 +1,407 @@
+/* ── Layout ───────────────────────────────────────────────── */
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background: #0d0d0d;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+}
+
+/* ── Sidebar (igual al Dashboard) ─────────────────────────── */
+.sidebar {
+  width: 220px;
+  min-height: 100vh;
+  background: #111111;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.sidebarBrand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 2.4rem; padding: 0 0.4rem; }
+.logoRing { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #c0392b, #922b21); display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; box-shadow: 0 3px 12px rgba(192,57,43,0.4); }
+.sidebarBrandName { font-size: 1rem; font-weight: 700; letter-spacing: 0.04em; }
+.nav { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; }
+.navLabel { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); padding: 0 0.6rem; margin-bottom: 0.4rem; }
+.navItem { display: flex; align-items: center; gap: 0.65rem; padding: 0.55rem 0.8rem; border-radius: 8px; font-size: 0.875rem; font-weight: 500; color: rgba(255,255,255,0.55); transition: background 0.15s, color 0.15s; text-decoration: none; user-select: none; }
+.navItem:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.logoutBtn { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.8rem; background: none; border: none; border-radius: 8px; font-size: 0.875rem; font-weight: 500; color: rgba(255,255,255,0.4); cursor: pointer; transition: background 0.15s, color 0.15s; font-family: inherit; width: 100%; text-align: left; margin-top: 0.5rem; }
+.logoutBtn:hover { background: rgba(231,76,60,0.1); color: #e74c3c; }
+
+/* ── Main ─────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  padding: 2rem 2.5rem;
+  overflow-x: auto;
+}
+
+/* ── Breadcrumb ───────────────────────────────────────────── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.8rem;
+  font-size: 0.875rem;
+}
+.breadcrumbBack {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.breadcrumbBack:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.breadcrumbItem {
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.breadcrumbItem:hover { color: rgba(255,255,255,0.8); }
+.breadcrumbSep { color: rgba(255,255,255,0.2); }
+.breadcrumbCurrent { color: #fff; font-weight: 500; }
+
+/* ── User card ────────────────────────────────────────────── */
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 1.8rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  margin-bottom: 1.5rem;
+}
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c0392b, #6e1c1c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+.userInfo { flex: 1; }
+.userName { font-size: 1.1rem; font-weight: 700; margin: 0 0 0.2rem; }
+.userUid { font-size: 0.75rem; font-family: 'Courier New', monospace; color: rgba(255,255,255,0.3); margin: 0; }
+
+/* ── Role badge ───────────────────────────────────────────── */
+.roleBadge { display: inline-block; padding: 0.25rem 0.7rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); }
+.role_admin { background: rgba(192,57,43,0.18); color: #e74c3c; border-color: rgba(192,57,43,0.3); }
+.role_user { background: rgba(52,152,219,0.15); color: #5dade2; border-color: rgba(52,152,219,0.25); }
+.role_moderator { background: rgba(243,156,18,0.15); color: #f0b429; border-color: rgba(243,156,18,0.25); }
+
+/* ── Sections ─────────────────────────────────────────────── */
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.section {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.sectionOpen { border-color: rgba(192,57,43,0.3); }
+
+.sectionHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.2rem;
+  background: rgba(255,255,255,0.025);
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.sectionHeader:hover { background: rgba(255,255,255,0.04); }
+.sectionOpen .sectionHeader { background: rgba(192,57,43,0.08); }
+
+.sectionLeft { display: flex; align-items: center; gap: 0.65rem; }
+.sectionRight { display: flex; align-items: center; gap: 0.6rem; }
+.sectionIcon { display: flex; align-items: center; color: rgba(255,255,255,0.5); }
+.sectionOpen .sectionIcon { color: #e74c3c; }
+.sectionLabel { font-size: 0.9rem; font-weight: 600; }
+.sectionCount { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; background: rgba(192,57,43,0.18); color: #e74c3c; border: 1px solid rgba(192,57,43,0.25); }
+
+.chevron { display: flex; align-items: center; color: rgba(255,255,255,0.35); transition: transform 0.2s; }
+.chevronOpen { transform: rotate(180deg); }
+
+/* ── Section body ─────────────────────────────────────────── */
+.sectionBody {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  background: #0d0d0d;
+}
+
+.loadingRow, .emptyRow {
+  padding: 1.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+.errorRow {
+  padding: 0.9rem 1.2rem;
+  font-size: 0.875rem;
+  color: #f1948a;
+  background: rgba(231,76,60,0.08);
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; min-width: 400px; }
+.th { text-align: left; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(255,255,255,0.35); padding: 0.7rem 1.2rem; background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+.tr:not(:last-child) { border-bottom: 1px solid rgba(255,255,255,0.05); }
+.tr:hover { background: rgba(255,255,255,0.025); }
+.trEditing { background: rgba(192,57,43,0.06) !important; }
+.td { padding: 0.8rem 1.2rem; font-size: 0.875rem; color: rgba(255,255,255,0.7); vertical-align: middle; }
+.uid { font-size: 0.75rem; font-family: 'Courier New', monospace; color: rgba(255,255,255,0.3); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Inline edit ──────────────────────────────────────────── */
+.editInput {
+  width: 100%;
+  min-width: 80px;
+  padding: 0.35rem 0.6rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(192,57,43,0.5);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.editInput:focus {
+  border-color: #c0392b;
+  box-shadow: 0 0 0 2px rgba(192,57,43,0.2);
+}
+
+.actionBtns { display: flex; gap: 0.4rem; align-items: center; white-space: nowrap; }
+
+.saveBtn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  background: linear-gradient(135deg, #c0392b, #a93226);
+  border: none; border-radius: 6px;
+  color: #fff; font-size: 0.78rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.saveBtn:hover:not(:disabled) { opacity: 0.85; }
+.saveBtn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.cancelBtn {
+  display: inline-flex; align-items: center;
+  padding: 0.35rem 0.7rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+  color: rgba(255,255,255,0.55); font-size: 0.78rem; font-weight: 500; font-family: inherit;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.cancelBtn:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: #fff; }
+.cancelBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.editBtn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 6px;
+  color: rgba(255,255,255,0.45); font-size: 0.78rem; font-weight: 500; font-family: inherit;
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.editBtn:hover { background: rgba(192,57,43,0.12); border-color: rgba(192,57,43,0.3); color: #e74c3c; }
+
+.saveErrorRow {
+  padding: 0.4rem 1.2rem;
+  font-size: 0.8rem;
+  color: #f1948a;
+  background: rgba(231,76,60,0.08);
+}
+
+.microSpinner {
+  width: 12px; height: 12px;
+  border: 1.5px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Delete button ────────────────────────────────────────── */
+.deleteBtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 6px;
+  color: rgba(255,255,255,0.35); cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.deleteBtn:hover { background: rgba(231,76,60,0.12); border-color: rgba(231,76,60,0.3); color: #e74c3c; }
+
+.trDeleting { background: rgba(231,76,60,0.06) !important; }
+.deleteConfirmText { font-size: 0.875rem; color: rgba(255,255,255,0.7); }
+.deleteConfirmText strong { color: #fff; }
+.deleteConfirmBtn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  background: linear-gradient(135deg, #c0392b, #a93226);
+  border: none; border-radius: 6px;
+  color: #fff; font-size: 0.78rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.deleteConfirmBtn:hover:not(:disabled) { opacity: 0.85; }
+.deleteConfirmBtn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Add button (section header) ──────────────────────────── */
+.addBtn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  background: rgba(192,57,43,0.15);
+  border: 1px solid rgba(192,57,43,0.3); border-radius: 6px;
+  color: #e74c3c; font-size: 0.78rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background 0.15s;
+  white-space: nowrap;
+}
+.addBtn:hover { background: rgba(192,57,43,0.25); }
+
+/* ── Bulk import button ────────────────────────────────────── */
+.bulkBtn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+  color: rgba(255,255,255,0.65); font-size: 0.78rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.bulkBtn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* ── Delete all button ─────────────────────────────────────── */
+.deleteAllBtn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  background: rgba(231,76,60,0.1);
+  border: 1px solid rgba(231,76,60,0.25); border-radius: 6px;
+  color: #e74c3c; font-size: 0.78rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background 0.15s;
+  white-space: nowrap;
+}
+.deleteAllBtn:hover { background: rgba(231,76,60,0.2); }
+
+.deleteAllConfirm {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  background: rgba(231,76,60,0.1);
+  border: 1px solid rgba(231,76,60,0.2);
+  border-radius: 6px;
+}
+.deleteAllConfirmText {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #f1948a;
+  white-space: nowrap;
+}
+
+/* ── Bulk form ─────────────────────────────────────────────── */
+.bulkForm {
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.025);
+}
+.bulkHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+.bulkTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+  white-space: nowrap;
+}
+.bulkHint {
+  font-size: 0.72rem;
+  font-family: 'Courier New', monospace;
+  color: rgba(255,255,255,0.3);
+  word-break: break-all;
+}
+.bulkTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.85rem;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+  color: #fff; font-size: 0.82rem; font-family: 'Courier New', monospace;
+  resize: vertical; outline: none; line-height: 1.5;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  margin-bottom: 0.65rem;
+}
+.bulkTextarea::placeholder { color: rgba(255,255,255,0.2); }
+.bulkTextarea:focus { border-color: rgba(255,255,255,0.25); box-shadow: 0 0 0 2px rgba(255,255,255,0.05); }
+.bulkTextarea:disabled { opacity: 0.5; }
+.bulkResult {
+  font-size: 0.8rem;
+  color: #2ecc71;
+  background: rgba(39,174,96,0.1);
+  border: 1px solid rgba(39,174,96,0.2);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  margin: 0 0 0.6rem;
+}
+
+/* ── Add form ─────────────────────────────────────────────── */
+.addForm {
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(192,57,43,0.05);
+}
+.addFormFields {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.addField { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 180px; }
+.addLabel { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); }
+.addInput {
+  padding: 0.55rem 0.75rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+  color: #fff; font-size: 0.875rem; font-family: inherit; outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.addInput::placeholder { color: rgba(255,255,255,0.2); }
+.addInput:focus { border-color: rgba(192,57,43,0.6); box-shadow: 0 0 0 2px rgba(192,57,43,0.15); }
+.addInput:disabled { opacity: 0.5; }
+.addError { font-size: 0.8rem; color: #f1948a; margin: 0 0 0.5rem; }
+.addFormActions { display: flex; gap: 0.5rem; align-items: center; }
+
+/* ── States ───────────────────────────────────────────────── */
+.stateBox { display: flex; align-items: center; justify-content: center; padding: 4rem; }
+.bigSpinner { width: 32px; height: 32px; border: 2.5px solid rgba(255,255,255,0.1); border-top-color: #c0392b; border-radius: 50%; animation: spin 0.7s linear infinite; }
+.smallSpinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #c0392b; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+.errorBox { padding: 0.9rem 1.2rem; background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.25); border-radius: 10px; color: #f1948a; font-size: 0.875rem; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
