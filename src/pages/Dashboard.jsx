@@ -1,12 +1,11 @@
 ﻿import { useState, useEffect, useRef } from 'react'
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where, limit, startAfter, documentId } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch, arrayUnion, arrayRemove, query, orderBy, where, limit, startAfter, documentId } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { db, auth } from '../firebase'
 import styles from './Dashboard.module.css'
 
-// Genera tokens de búsqueda: todas las subcadenas ≥ 2 chars de cada segmento
-// "martinezdelatorre" → incluye "torre", "lat", "dela", etc.
+// Genera tokens de búsqueda: todas las subcadenas >= 2 chars de cada segmento
 function generateSearchTokens(name) {
   if (!name) return []
   const tokens = new Set()
@@ -25,8 +24,8 @@ function Avatar({ name }) {
   return <div className={styles.avatar}>{letter}</div>
 }
 
-function UserRow({ user, onUpdated, onDeleted, navigate }) {
-  const [mode, setMode] = useState('view') // 'view' | 'edit' | 'confirmDelete'
+function UserRow({ user, onUpdated, onDeleted, navigate, selectionMode, selected, onToggleSelect }) {
+  const [mode, setMode] = useState('view')
   const [draftName, setDraftName] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -34,72 +33,47 @@ function UserRow({ user, onUpdated, onDeleted, navigate }) {
 
   const isAdmin = user.role === 'admin'
 
-  const startEdit = (e) => {
-    e.stopPropagation()
-    setDraftName(user.name || '')
-    setRowError('')
-    setMode('edit')
+  const handleRowClick = () => {
+    if (selectionMode) { onToggleSelect(user.id); return }
+    navigate(`/dashboard/users/${user.id}`, { state: { user } })
   }
 
-  const cancelEdit = (e) => {
-    e?.stopPropagation()
-    setMode('view')
-  }
+  const startEdit = (e) => { e.stopPropagation(); setDraftName(user.name || ''); setRowError(''); setMode('edit') }
+  const cancelEdit = (e) => { e?.stopPropagation(); setMode('view') }
 
   const saveEdit = async (e) => {
     e.stopPropagation()
     const name = draftName.trim()
-    if (!name) { setRowError('El nombre no puede estar vacío.'); return }
-    setSaving(true)
-    setRowError('')
+    if (!name) { setRowError('El nombre no puede estar vacio.'); return }
+    setSaving(true); setRowError('')
     try {
       await updateDoc(doc(db, 'users', user.id), { name, searchTokens: generateSearchTokens(name) })
-      onUpdated(user.id, { name })
-      setMode('view')
-    } catch (err) {
-      setRowError('Error al guardar.')
-      console.error(err)
-    } finally {
-      setSaving(false)
-    }
+      onUpdated(user.id, { name }); setMode('view')
+    } catch (err) { setRowError('Error al guardar.'); console.error(err) }
+    finally { setSaving(false) }
   }
 
-  const startDelete = (e) => {
-    e.stopPropagation()
-    setMode('confirmDelete')
-  }
-
-  const cancelDelete = (e) => {
-    e?.stopPropagation()
-    setMode('view')
-  }
+  const startDelete = (e) => { e.stopPropagation(); setMode('confirmDelete') }
+  const cancelDelete = (e) => { e?.stopPropagation(); setMode('view') }
 
   const doDelete = async (e) => {
-    e.stopPropagation()
-    setDeleting(true)
-    try {
-      await deleteDoc(doc(db, 'users', user.id))
-      onDeleted(user.id)
-    } catch (err) {
-      console.error(err)
-      setDeleting(false)
-      setMode('view')
-    }
+    e.stopPropagation(); setDeleting(true)
+    try { await deleteDoc(doc(db, 'users', user.id)); onDeleted(user.id) }
+    catch (err) { console.error(err); setDeleting(false); setMode('view') }
   }
 
   if (mode === 'confirmDelete') {
     return (
       <tr className={`${styles.tr} ${styles.trDeleting}`}>
-        <td colSpan={3} className={styles.td}>
+        <td colSpan={selectionMode ? 4 : 3} className={styles.td}>
           <span className={styles.deleteConfirmText}>
-            ¿Eliminar a <strong>{user.name || user.id}</strong>?
+            Eliminar a <strong>{user.name || user.id}</strong>?
           </span>
         </td>
         <td className={styles.td}>
           <div className={styles.actionBtns}>
             <button className={styles.deleteConfirmBtn} onClick={doDelete} disabled={deleting}>
-              {deleting ? <span className={styles.microSpinner} /> : null}
-              Eliminar
+              {deleting ? <span className={styles.microSpinner} /> : null}Eliminar
             </button>
             <button className={styles.cancelBtn} onClick={cancelDelete} disabled={deleting}>Cancelar</button>
           </div>
@@ -112,22 +86,15 @@ function UserRow({ user, onUpdated, onDeleted, navigate }) {
     return (
       <>
         <tr className={`${styles.tr} ${styles.trEditing}`}>
+          {selectionMode && <td className={styles.td} />}
           <td className={styles.td}>
             <div className={styles.userCell}>
               <Avatar name={draftName || user.name} />
-              <input
-                className={styles.editInput}
-                value={draftName}
-                onChange={(e) => setDraftName(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                autoFocus
-              />
+              <input className={styles.editInput} value={draftName} onChange={(e) => setDraftName(e.target.value)} onClick={(e) => e.stopPropagation()} autoFocus />
             </div>
           </td>
           <td className={styles.td}>
-            <span className={`${styles.roleBadge} ${styles['role_' + (user.role || '').toLowerCase()]}`}>
-              {user.role || '—'}
-            </span>
+            <span className={`${styles.roleBadge} ${styles['role_' + (user.role || '').toLowerCase()]}`}>{user.role || '-'}</span>
             <span className={styles.roleLocked} title="El rol no se puede modificar">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
                 <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
@@ -150,35 +117,34 @@ function UserRow({ user, onUpdated, onDeleted, navigate }) {
             </div>
           </td>
         </tr>
-        {rowError && (
-          <tr>
-            <td colSpan={4} className={styles.saveErrorRow}>{rowError}</td>
-          </tr>
-        )}
+        {rowError && <tr><td colSpan={selectionMode ? 5 : 4} className={styles.saveErrorRow}>{rowError}</td></tr>}
       </>
     )
   }
 
   return (
     <tr
-      className={`${styles.tr} ${styles.trClickable}`}
-      onClick={() => navigate(`/dashboard/users/${user.id}`, { state: { user } })}
+      className={`${styles.tr} ${styles.trClickable} ${selected ? styles.trSelected : ''}`}
+      onClick={handleRowClick}
     >
+      {selectionMode && (
+        <td className={styles.tdCheck} onClick={(e) => e.stopPropagation()}>
+          <input type="checkbox" className={styles.checkbox} checked={selected} onChange={() => onToggleSelect(user.id)} />
+        </td>
+      )}
       <td className={styles.td}>
         <div className={styles.userCell}>
           <Avatar name={user.name} />
-          <span className={styles.userName}>{user.name || '—'}</span>
+          <span className={styles.userName}>{user.name || '-'}</span>
         </div>
       </td>
       <td className={styles.td}>
-        <span className={`${styles.roleBadge} ${styles['role_' + (user.role || '').toLowerCase()]}`}>
-          {user.role || '—'}
-        </span>
+        <span className={`${styles.roleBadge} ${styles['role_' + (user.role || '').toLowerCase()]}`}>{user.role || '-'}</span>
       </td>
       <td className={`${styles.td} ${styles.uid}`}>{user.id}</td>
       <td className={styles.td}>
         <div className={styles.actionBtns}>
-          <button className={styles.editBtn} onClick={startEdit} title="Editar usuario">
+          <button className={styles.editBtn} onClick={(e) => { e.stopPropagation(); startEdit(e) }} title="Editar usuario">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -187,7 +153,7 @@ function UserRow({ user, onUpdated, onDeleted, navigate }) {
           </button>
           <button
             className={`${styles.deleteBtn} ${isAdmin ? styles.deleteBtnDisabled : ''}`}
-            onClick={isAdmin ? (e) => e.stopPropagation() : startDelete}
+            onClick={isAdmin ? (e) => e.stopPropagation() : (e) => { e.stopPropagation(); startDelete(e) }}
             disabled={isAdmin}
             title={isAdmin ? 'No se pueden eliminar administradores' : 'Eliminar usuario'}
           >
@@ -204,12 +170,81 @@ function UserRow({ user, onUpdated, onDeleted, navigate }) {
   )
 }
 
+// Modal para operaciones masivas
+function BulkModal({ action, selectedCount, onConfirm, onClose }) {
+  const [appPkg, setAppPkg] = useState('')
+  const [contactName, setContactName] = useState('')
+  const [contactNumber, setContactNumber] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+
+  const isApp = action === 'addApp' || action === 'removeApp'
+  const isAdd = action === 'addApp' || action === 'addContact'
+  const titles = { addApp: 'Agregar app', removeApp: 'Quitar app', addContact: 'Agregar contacto', removeContact: 'Quitar contacto' }
+
+  const handleSubmit = async () => {
+    if (isApp && !appPkg.trim()) return
+    if (!isApp && (!contactName.trim() || !contactNumber.trim())) return
+    setLoading(true)
+    setResult(null)
+    try {
+      const payload = isApp ? appPkg.trim() : { name: contactName.trim(), number: contactNumber.trim() }
+      await onConfirm(action, payload)
+      setResult('ok')
+    } catch {
+      setResult('error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <h3 className={styles.modalTitle}>{titles[action]}</h3>
+        <p className={styles.modalSubtitle}>
+          Se aplicara a <strong>{selectedCount}</strong> usuario{selectedCount !== 1 ? 's' : ''}.
+          {!isAdd && ' Si algun usuario no tiene el elemento, se omitira sin error.'}
+          {isAdd && ' Si algun usuario ya lo tiene, no se duplicara.'}
+        </p>
+        {isApp ? (
+          <input
+            className={styles.modalInput}
+            placeholder="Package name (ej: com.whatsapp)"
+            value={appPkg}
+            onChange={(e) => setAppPkg(e.target.value)}
+            autoFocus
+          />
+        ) : (
+          <>
+            <input className={styles.modalInput} placeholder="Nombre del contacto" value={contactName} onChange={(e) => setContactName(e.target.value)} autoFocus />
+            <input className={styles.modalInput} placeholder="Numero (ej: +521234567890)" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} style={{ marginTop: '0.6rem' }} />
+          </>
+        )}
+        {result === 'ok' && <p className={styles.modalSuccess}>Operacion completada en {selectedCount} usuarios.</p>}
+        {result === 'error' && <p className={styles.modalError}>Ocurrio un error. Revisa la consola.</p>}
+        <div className={styles.modalActions}>
+          {result !== 'ok' && (
+            <button className={styles.modalConfirmBtn} onClick={handleSubmit} disabled={loading}>
+              {loading ? <span className={styles.microSpinner} /> : null}
+              {loading ? 'Aplicando...' : 'Confirmar'}
+            </button>
+          )}
+          <button className={styles.modalCancelBtn} onClick={onClose} disabled={loading}>
+            {result === 'ok' ? 'Cerrar' : 'Cancelar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const USERS_CACHE_KEY = 'dashboard_users_cache'
-const USERS_CACHE_TTL = 5 * 60 * 1000 // 5 minutos
+const USERS_CACHE_TTL = 5 * 60 * 1000
 const PAGE_SIZE = 20
+const BATCH_SIZE = 499
 
 export default function Dashboard() {
-  // Modo browse (sin búsqueda)
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(false)
@@ -217,7 +252,6 @@ export default function Dashboard() {
   const [refreshKey, setRefreshKey] = useState(0)
   const lastIdRef = useRef(null)
 
-  // Modo search
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -228,6 +262,14 @@ export default function Dashboard() {
 
   const [loadingMore, setLoadingMore] = useState(false)
   const [reindexing, setReindexing] = useState(false)
+
+  // Seleccion masiva
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [companyInput, setCompanyInput] = useState('')
+  const [companyLoading, setCompanyLoading] = useState(false)
+  const [bulkAction, setBulkAction] = useState(null)
+
   const navigate = useNavigate()
 
   const isSearchMode = search.trim().length > 0
@@ -235,26 +277,19 @@ export default function Dashboard() {
   const displayLoading = isSearchMode ? searchLoading : loading
   const displayHasMore = isSearchMode ? searchHasMore : hasMore
 
-  // Browse: carga paginada
   useEffect(() => {
     const load = async () => {
-      setLoading(true)
-      setError('')
-      lastIdRef.current = null
+      setLoading(true); setError(''); lastIdRef.current = null
       if (refreshKey === 0) {
         try {
           const raw = sessionStorage.getItem(USERS_CACHE_KEY)
           if (raw) {
-            const { ts, data, hasMore: cachedHasMore, lastId } = JSON.parse(raw)
+            const { ts, data, hasMore: h, lastId } = JSON.parse(raw)
             if (Date.now() - ts < USERS_CACHE_TTL) {
-              setUsers(data)
-              setHasMore(cachedHasMore)
-              lastIdRef.current = lastId || null
-              setLoading(false)
-              return
+              setUsers(data); setHasMore(h); lastIdRef.current = lastId || null; setLoading(false); return
             }
           }
-        } catch { /* caché corrupta, ignorar */ }
+        } catch { /* ignorar */ }
       }
       try {
         const q = query(collection(db, 'users'), orderBy(documentId()), limit(PAGE_SIZE))
@@ -262,74 +297,44 @@ export default function Dashboard() {
         const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
         const more = snap.docs.length === PAGE_SIZE
         const lastId = snap.docs[snap.docs.length - 1]?.id || null
-        lastIdRef.current = lastId
-        setUsers(data)
-        setHasMore(more)
+        lastIdRef.current = lastId; setUsers(data); setHasMore(more)
         sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data, hasMore: more, lastId }))
-      } catch (err) {
-        setError('No se pudo cargar la lista de usuarios. Verifica las reglas de Firestore.')
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
+      } catch (err) { setError('No se pudo cargar la lista de usuarios. Verifica las reglas de Firestore.'); console.error(err) }
+      finally { setLoading(false) }
     }
     load()
   }, [refreshKey])
 
-  // Search: server-side con debounce 400ms
   useEffect(() => {
     const term = search.trim()
-    if (!term) {
-      setSearchResults([])
-      setSearchHasMore(false)
-      lastSearchDocRef.current = null
-      return
-    }
+    if (!term) { setSearchResults([]); setSearchHasMore(false); lastSearchDocRef.current = null; return }
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
-      setSearchLoading(true)
-      setSearchHasMore(false)
-      lastSearchDocRef.current = null
-      const token = term.toLowerCase()
-      searchTermRef.current = token
+      setSearchLoading(true); setSearchHasMore(false); lastSearchDocRef.current = null
+      const token = term.toLowerCase(); searchTermRef.current = token
       try {
-        const q = query(
-          collection(db, 'users'),
-          where('searchTokens', 'array-contains', token),
-          limit(PAGE_SIZE)
-        )
+        const q = query(collection(db, 'users'), where('searchTokens', 'array-contains', token), limit(PAGE_SIZE))
         const snap = await getDocs(q)
         const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
         lastSearchDocRef.current = snap.docs[snap.docs.length - 1] || null
-        setSearchResults(data)
-        setSearchHasMore(snap.docs.length === PAGE_SIZE)
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setSearchLoading(false)
-      }
+        setSearchResults(data); setSearchHasMore(snap.docs.length === PAGE_SIZE)
+      } catch (err) { console.error(err) }
+      finally { setSearchLoading(false) }
     }, 400)
     return () => clearTimeout(debounceRef.current)
   }, [search])
 
-  // Cargar más (browse o search)
   const handleLoadMore = async () => {
     if (loadingMore) return
     setLoadingMore(true)
     try {
       if (isSearchMode) {
         if (!lastSearchDocRef.current) return
-        const q = query(
-          collection(db, 'users'),
-          where('searchTokens', 'array-contains', searchTermRef.current),
-          startAfter(lastSearchDocRef.current),
-          limit(PAGE_SIZE)
-        )
+        const q = query(collection(db, 'users'), where('searchTokens', 'array-contains', searchTermRef.current), startAfter(lastSearchDocRef.current), limit(PAGE_SIZE))
         const snap = await getDocs(q)
         const newData = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
         lastSearchDocRef.current = snap.docs[snap.docs.length - 1] || null
-        setSearchResults((prev) => [...prev, ...newData])
-        setSearchHasMore(snap.docs.length === PAGE_SIZE)
+        setSearchResults((prev) => [...prev, ...newData]); setSearchHasMore(snap.docs.length === PAGE_SIZE)
       } else {
         if (!lastIdRef.current) return
         const q = query(collection(db, 'users'), orderBy(documentId()), startAfter(lastIdRef.current), limit(PAGE_SIZE))
@@ -342,52 +347,33 @@ export default function Dashboard() {
           const updated = [...prev, ...newData]
           sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore: more, lastId }))
           return updated
-        })
-        setHasMore(more)
+        }); setHasMore(more)
       }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoadingMore(false)
-    }
+    } catch (err) { console.error(err) }
+    finally { setLoadingMore(false) }
   }
 
-  const handleRefresh = () => {
-    sessionStorage.removeItem(USERS_CACHE_KEY)
-    setSearch('')
-    setRefreshKey((k) => k + 1)
-  }
+  const handleRefresh = () => { sessionStorage.removeItem(USERS_CACHE_KEY); setSearch(''); setRefreshKey((k) => k + 1) }
 
-  // Migración: indexa todos los usuarios existentes con searchTokens
   const handleReindex = async () => {
     setReindexing(true)
     try {
-      let lastDoc = null
-      let hasMoreDocs = true
+      let lastDoc = null; let hasMoreDocs = true
       while (hasMoreDocs) {
         const q = lastDoc
           ? query(collection(db, 'users'), orderBy(documentId()), startAfter(lastDoc), limit(50))
           : query(collection(db, 'users'), orderBy(documentId()), limit(50))
         const snap = await getDocs(q)
-        await Promise.all(
-          snap.docs.map((d) => updateDoc(d.ref, { searchTokens: generateSearchTokens(d.data().name) }))
-        )
+        await Promise.all(snap.docs.map((d) => updateDoc(d.ref, { searchTokens: generateSearchTokens(d.data().name) })))
         hasMoreDocs = snap.docs.length === 50
         lastDoc = snap.docs[snap.docs.length - 1] || null
       }
-      sessionStorage.removeItem(USERS_CACHE_KEY)
-      setRefreshKey((k) => k + 1)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setReindexing(false)
-    }
+      sessionStorage.removeItem(USERS_CACHE_KEY); setRefreshKey((k) => k + 1)
+    } catch (err) { console.error(err) }
+    finally { setReindexing(false) }
   }
 
-  const handleLogout = async () => {
-    await signOut(auth)
-    navigate('/login', { replace: true })
-  }
+  const handleLogout = async () => { await signOut(auth); navigate('/login', { replace: true }) }
 
   const handleUpdated = (userId, fields) => {
     setUsers((prev) => {
@@ -407,6 +393,56 @@ export default function Dashboard() {
     setSearchResults((prev) => prev.filter((u) => u.id !== userId))
   }
 
+  // === Seleccion masiva ===
+  const toggleSelectionMode = () => {
+    setSelectionMode((v) => { if (v) setSelectedIds(new Set()); return !v })
+    setCompanyInput('')
+  }
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next })
+  }
+
+  const handleSelectVisible = () => {
+    setSelectedIds((prev) => { const next = new Set(prev); displayUsers.forEach((u) => next.add(u.id)); return next })
+  }
+
+  const handleDeselectAll = () => setSelectedIds(new Set())
+
+  const handleSelectByCompany = async () => {
+    const company = companyInput.trim().toLowerCase()
+    if (!company) return
+    setCompanyLoading(true)
+    try {
+      const ids = new Set(selectedIds)
+      let lastDoc = null; let morePages = true
+      while (morePages) {
+        const q = lastDoc
+          ? query(collection(db, 'users'), where('searchTokens', 'array-contains', company), startAfter(lastDoc), limit(200))
+          : query(collection(db, 'users'), where('searchTokens', 'array-contains', company), limit(200))
+        const snap = await getDocs(q)
+        snap.docs.forEach((d) => ids.add(d.id))
+        morePages = snap.docs.length === 200
+        lastDoc = snap.docs[snap.docs.length - 1] || null
+      }
+      setSelectedIds(ids)
+    } catch (err) { console.error(err) }
+    finally { setCompanyLoading(false) }
+  }
+
+  const handleBulkConfirm = async (action, payload) => {
+    const ids = [...selectedIds]
+    const isAdd = action === 'addApp' || action === 'addContact'
+    const field = action === 'addApp' || action === 'removeApp' ? 'apps' : 'contacts'
+    const fieldValue = isAdd ? arrayUnion(payload) : arrayRemove(payload)
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db)
+      ids.slice(i, i + BATCH_SIZE).forEach((id) => batch.update(doc(db, 'users', id), { [field]: fieldValue }))
+      await batch.commit()
+    }
+    sessionStorage.removeItem(USERS_CACHE_KEY)
+  }
+
   return (
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
@@ -420,7 +456,7 @@ export default function Dashboard() {
           <span className={styles.sidebarBrandName}>Contech</span>
         </div>
         <nav className={styles.nav}>
-          <span className={styles.navLabel}>Menú</span>
+          <span className={styles.navLabel}>Menu</span>
           <a className={`${styles.navItem} ${styles.navItemActive}`}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -436,7 +472,7 @@ export default function Dashboard() {
             <polyline points="16 17 21 12 16 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
-          Cerrar sesión
+          Cerrar sesion
         </button>
       </aside>
 
@@ -444,52 +480,82 @@ export default function Dashboard() {
         <header className={styles.header}>
           <div>
             <h1 className={styles.pageTitle}>Usuarios</h1>
-            <p className={styles.pageSubtitle}>Lista de usuarios registrados en la aplicación</p>
+            <p className={styles.pageSubtitle}>Lista de usuarios registrados en la aplicacion</p>
           </div>
           <div className={styles.headerBadge}>
-            {isSearchMode
-              ? `${searchResults.length} resultado${searchResults.length !== 1 ? 's' : ''}`
-              : `${users.length} cargados${hasMore ? '+' : ''}`}
+            {selectionMode
+              ? `${selectedIds.size} seleccionado${selectedIds.size !== 1 ? 's' : ''}`
+              : isSearchMode
+                ? `${searchResults.length} resultado${searchResults.length !== 1 ? 's' : ''}`
+                : `${users.length} cargados${hasMore ? '+' : ''}`}
           </div>
         </header>
 
-        <div className={styles.toolbar}>
-          <div className={styles.searchWrap}>
-            <svg className={styles.searchIcon} width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
-              <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-            <input
-              className={styles.searchInput}
-              placeholder="Buscar por nombre..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button className={styles.searchClear} onClick={() => setSearch('')} title="Limpiar">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                  <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </button>
-            )}
-          </div>
-          <button className={styles.refreshBtn} onClick={handleRefresh} disabled={loading} title="Actualizar lista">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={loading ? { animation: 'spin 0.8s linear infinite' } : {}}>
-              <path d="M23 4v6h-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M1 20v-6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Actualizar
-          </button>
-          <button className={styles.reindexBtn} onClick={handleReindex} disabled={reindexing} title="Indexar todos los usuarios para búsqueda por subcadena">
-            {reindexing ? <span className={styles.microSpinner} /> : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Toolbar normal */}
+        {!selectionMode && (
+          <div className={styles.toolbar}>
+            <div className={styles.searchWrap}>
+              <svg className={styles.searchIcon} width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
+                <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
-            )}
-            {reindexing ? 'Indexando...' : 'Indexar búsqueda'}
-          </button>
-        </div>
+              <input className={styles.searchInput} placeholder="Buscar por nombre..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              {search && (
+                <button className={styles.searchClear} onClick={() => setSearch('')} title="Limpiar">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <button className={styles.refreshBtn} onClick={handleRefresh} disabled={loading} title="Actualizar lista">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={loading ? { animation: 'spin 0.8s linear infinite' } : {}}>
+                <path d="M23 4v6h-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M1 20v-6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Actualizar
+            </button>
+            <button className={styles.reindexBtn} onClick={handleReindex} disabled={reindexing} title="Indexar busqueda">
+              {reindexing ? <span className={styles.microSpinner} /> : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+              {reindexing ? 'Indexando...' : 'Indexar busqueda'}
+            </button>
+            <button className={styles.selectModeBtn} onClick={toggleSelectionMode} title="Seleccionar usuarios para operaciones masivas">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Seleccionar
+            </button>
+          </div>
+        )}
+
+        {/* Toolbar seleccion */}
+        {selectionMode && (
+          <div className={styles.selectionToolbar}>
+            <div className={styles.selectionToolbarLeft}>
+              <button className={styles.selectVisibleBtn} onClick={handleSelectVisible}>Seleccionar visibles</button>
+              <button className={styles.deselectBtn} onClick={handleDeselectAll}>Deseleccionar todo</button>
+              <div className={styles.companySelectWrap}>
+                <input
+                  className={styles.companyInput}
+                  placeholder="Empresa (ej: femsa)"
+                  value={companyInput}
+                  onChange={(e) => setCompanyInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSelectByCompany()}
+                />
+                <button className={styles.companySelectBtn} onClick={handleSelectByCompany} disabled={companyLoading || !companyInput.trim()}>
+                  {companyLoading ? <span className={styles.microSpinner} /> : 'Seleccionar empresa'}
+                </button>
+              </div>
+            </div>
+            <button className={styles.exitSelectionBtn} onClick={toggleSelectionMode}>Cancelar</button>
+          </div>
+        )}
 
         {displayLoading && (
           <div className={styles.stateBox}>
@@ -498,9 +564,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {error && !loading && (
-          <div className={styles.errorBox}>{error}</div>
-        )}
+        {error && !loading && <div className={styles.errorBox}>{error}</div>}
 
         {!displayLoading && !error && (
           <>
@@ -508,6 +572,18 @@ export default function Dashboard() {
               <table className={styles.table}>
                 <thead>
                   <tr>
+                    {selectionMode && (
+                      <th className={styles.thCheck}>
+                        <input type="checkbox" className={styles.checkbox}
+                          checked={displayUsers.length > 0 && displayUsers.every((u) => selectedIds.has(u.id))}
+                          onChange={() => {
+                            const allSelected = displayUsers.every((u) => selectedIds.has(u.id))
+                            allSelected ? setSelectedIds((prev) => { const n = new Set(prev); displayUsers.forEach((u) => n.delete(u.id)); return n })
+                              : setSelectedIds((prev) => { const n = new Set(prev); displayUsers.forEach((u) => n.add(u.id)); return n })
+                          }}
+                        />
+                      </th>
+                    )}
                     <th className={styles.th}>Nombre</th>
                     <th className={styles.th}>Rol</th>
                     <th className={styles.th}>UID</th>
@@ -517,7 +593,7 @@ export default function Dashboard() {
                 <tbody>
                   {displayUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className={styles.empty}>
+                      <td colSpan={selectionMode ? 5 : 4} className={styles.empty}>
                         {isSearchMode ? 'No se encontraron usuarios con ese nombre.' : 'No hay usuarios registrados.'}
                       </td>
                     </tr>
@@ -529,6 +605,9 @@ export default function Dashboard() {
                         onUpdated={handleUpdated}
                         onDeleted={handleDeleted}
                         navigate={navigate}
+                        selectionMode={selectionMode}
+                        selected={selectedIds.has(u.id)}
+                        onToggleSelect={handleToggleSelect}
                       />
                     ))
                   )}
@@ -539,13 +618,36 @@ export default function Dashboard() {
               <div className={styles.loadMoreWrap}>
                 <button className={styles.loadMoreBtn} onClick={handleLoadMore} disabled={loadingMore}>
                   {loadingMore ? <span className={styles.microSpinner} /> : null}
-                  {loadingMore ? 'Cargando...' : 'Cargar más usuarios'}
+                  {loadingMore ? 'Cargando...' : 'Cargar mas usuarios'}
                 </button>
               </div>
             )}
           </>
         )}
       </main>
+
+      {/* Barra flotante de acciones masivas */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div className={styles.bulkBar}>
+          <span className={styles.bulkCount}>{selectedIds.size} usuario{selectedIds.size !== 1 ? 's' : ''}</span>
+          <div className={styles.bulkActions}>
+            <button className={styles.bulkBtn} onClick={() => setBulkAction('addApp')}>+ App</button>
+            <button className={styles.bulkBtn} onClick={() => setBulkAction('removeApp')}>- App</button>
+            <button className={styles.bulkBtn} onClick={() => setBulkAction('addContact')}>+ Contacto</button>
+            <button className={styles.bulkBtn} onClick={() => setBulkAction('removeContact')}>- Contacto</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal operacion masiva */}
+      {bulkAction && (
+        <BulkModal
+          action={bulkAction}
+          selectedCount={selectedIds.size}
+          onConfirm={handleBulkConfirm}
+          onClose={() => setBulkAction(null)}
+        />
+      )}
     </div>
   )
 }

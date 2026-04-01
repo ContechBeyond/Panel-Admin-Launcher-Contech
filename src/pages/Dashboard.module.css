@@ -1,4 +1,4 @@
-/* ── Layout ───────────────────────────────────────────────── */
+﻿/* â”€â”€ Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .layout {
   display: flex;
   min-height: 100vh;
@@ -7,7 +7,7 @@
   color: #fff;
 }
 
-/* ── Sidebar ──────────────────────────────────────────────── */
+/* â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sidebar {
   width: 220px;
   min-height: 100vh;
@@ -48,7 +48,7 @@
   letter-spacing: 0.04em;
 }
 
-/* ── Nav ──────────────────────────────────────────────────── */
+/* â”€â”€ Nav â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .nav {
   display: flex;
   flex-direction: column;
@@ -96,7 +96,7 @@
   color: #e74c3c;
 }
 
-/* ── Logout ───────────────────────────────────────────────── */
+/* â”€â”€ Logout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .logoutBtn {
   display: flex;
   align-items: center;
@@ -121,14 +121,14 @@
   color: #e74c3c;
 }
 
-/* ── Main ─────────────────────────────────────────────────── */
+/* â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .main {
   flex: 1;
   padding: 2rem 2.5rem;
   overflow-x: auto;
 }
 
-/* ── Header ───────────────────────────────────────────────── */
+/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .header {
   display: flex;
   align-items: flex-start;
@@ -161,7 +161,7 @@
   margin-top: 0.2rem;
 }
 
-/* ── Toolbar ──────────────────────────────────────────────── */
+/* â”€â”€ Toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .toolbar {
   display: flex;
   align-items: center;
@@ -308,7 +308,7 @@
   box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12);
 }
 
-/* ── States ───────────────────────────────────────────────── */
+/* â”€â”€ States â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .stateBox {
   display: flex;
   flex-direction: column;
@@ -342,7 +342,7 @@
   font-size: 0.875rem;
 }
 
-/* ── Table ────────────────────────────────────────────────── */
+/* â”€â”€ Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .tableWrap {
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -392,7 +392,7 @@
   vertical-align: middle;
 }
 
-/* ── User cell ────────────────────────────────────────────── */
+/* â”€â”€ User cell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .userCell {
   display: flex;
   align-items: center;
@@ -418,7 +418,7 @@
   color: #fff;
 }
 
-/* ── UID cell ─────────────────────────────────────────────── */
+/* â”€â”€ UID cell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .uid {
   font-size: 0.75rem;
   font-family: 'Courier New', monospace;
@@ -429,7 +429,7 @@
   white-space: nowrap;
 }
 
-/* ── Empty state ──────────────────────────────────────────── */
+/* â”€â”€ Empty state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .empty {
   text-align: center;
   padding: 3.5rem;
@@ -437,7 +437,7 @@
   font-size: 0.875rem;
 }
 
-/* ── Role badge ───────────────────────────────────────────── */
+/* â”€â”€ Role badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .roleBadge {
   display: inline-block;
   padding: 0.25rem 0.7rem;
@@ -468,7 +468,7 @@
   border-color: rgba(243, 156, 18, 0.25);
 }
 
-/* ── Add user button ──────────────────────────────────────── */
+/* â”€â”€ Add user button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .addUserBtn {
   display: flex;
   align-items: center;
@@ -492,7 +492,7 @@
   box-shadow: 0 4px 16px rgba(192, 57, 43, 0.45);
 }
 
-/* ── Inline row states ────────────────────────────────────── */
+/* â”€â”€ Inline row states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .trEditing {
   background: rgba(192, 57, 43, 0.05) !important;
 }
@@ -501,7 +501,7 @@
   background: rgba(231, 76, 60, 0.08) !important;
 }
 
-/* ── Action buttons ───────────────────────────────────────── */
+/* â”€â”€ Action buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .actionBtns {
   display: flex;
   align-items: center;
@@ -653,7 +653,7 @@
   vertical-align: middle;
 }
 
-/* ── Micro spinner ────────────────────────────────────────── */
+/* â”€â”€ Micro spinner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .microSpinner {
   display: inline-block;
   width: 12px;
@@ -665,7 +665,7 @@
   flex-shrink: 0;
 }
 
-/* ── Modal ────────────────────────────────────────────────── */
+/* â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .modalOverlay {
   position: fixed;
   inset: 0;
@@ -682,6 +682,7 @@
   background: #161616;
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 16px;
+  padding: 1.5rem;
   width: 100%;
   max-width: 420px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
@@ -813,4 +814,282 @@
 .deleteConfirmBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* â”€â”€ Selection mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.selectModeBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  background: rgba(192, 57, 43, 0.12);
+  border: 1px solid rgba(192, 57, 43, 0.28);
+  border-radius: 10px;
+  color: #e05a47;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.selectModeBtn:hover {
+  background: rgba(192, 57, 43, 0.22);
+  color: #e74c3c;
+}
+
+.selectionToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.2rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: rgba(192, 57, 43, 0.07);
+  border: 1px solid rgba(192, 57, 43, 0.2);
+  border-radius: 12px;
+}
+
+.selectionToolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.selectVisibleBtn {
+  padding: 0.45rem 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.selectVisibleBtn:hover { background: rgba(255, 255, 255, 0.11); }
+
+.deselectBtn {
+  padding: 0.45rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.deselectBtn:hover { background: rgba(255, 255, 255, 0.08); color: rgba(255,255,255,0.7); }
+
+.companySelectWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.companyInput {
+  padding: 0.45rem 0.8rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.8rem;
+  font-family: inherit;
+  outline: none;
+  width: 150px;
+  transition: border-color 0.2s;
+}
+.companyInput::placeholder { color: rgba(255,255,255,0.25); }
+.companyInput:focus { border-color: rgba(192, 57, 43, 0.6); }
+
+.companySelectBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.companySelectBtn:hover:not(:disabled) { background: rgba(255,255,255,0.11); }
+.companySelectBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.exitSelectionBtn {
+  padding: 0.45rem 0.9rem;
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid rgba(231, 76, 60, 0.2);
+  border-radius: 8px;
+  color: #e74c3c;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.exitSelectionBtn:hover { background: rgba(231, 76, 60, 0.22); }
+
+/* â”€â”€ Selection table cols â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.thCheck {
+  text-align: center;
+  padding: 0.85rem 0.75rem;
+  background: rgba(255, 255, 255, 0.025);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  width: 44px;
+}
+
+.tdCheck {
+  text-align: center;
+  padding: 0.9rem 0.75rem;
+  width: 44px;
+  vertical-align: middle;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #c0392b;
+  cursor: pointer;
+}
+
+.trSelected {
+  background: rgba(192, 57, 43, 0.08) !important;
+}
+.trSelected:hover {
+  background: rgba(192, 57, 43, 0.13) !important;
+}
+
+/* â”€â”€ Bulk action bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.bulkBar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1.2rem;
+  background: #1a1a1a;
+  border: 1px solid rgba(192, 57, 43, 0.4);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(192, 57, 43, 0.15);
+  z-index: 50;
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+}
+
+.bulkCount {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e74c3c;
+  padding-right: 0.5rem;
+  border-right: 1px solid rgba(255,255,255,0.1);
+}
+
+.bulkActions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.bulkBtn {
+  padding: 0.45rem 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.bulkBtn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+
+/* â”€â”€ Bulk modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.modalSubtitle {
+  font-size: 0.83rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0.4rem 0 1.2rem;
+  line-height: 1.5;
+}
+
+.modalInput {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.modalInput::placeholder { color: rgba(255,255,255,0.25); }
+.modalInput:focus { border-color: rgba(192, 57, 43, 0.6); box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12); }
+
+.modalSuccess {
+  font-size: 0.83rem;
+  color: #58d68d;
+  background: rgba(88, 214, 141, 0.1);
+  border: 1px solid rgba(88, 214, 141, 0.2);
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  margin: 0.75rem 0 0;
+}
+
+.modalError {
+  font-size: 0.83rem;
+  color: #e74c3c;
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.2);
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  margin: 0.75rem 0 0;
+}
+
+.modalConfirmBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.3rem;
+  background: linear-gradient(135deg, #c0392b, #922b21);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.modalConfirmBtn:hover:not(:disabled) { opacity: 0.88; }
+.modalConfirmBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.modalCancelBtn {
+  padding: 0.6rem 1.1rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.modalCancelBtn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+.modalActions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+  justify-content: flex-end;
 }
