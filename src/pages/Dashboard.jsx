@@ -147,7 +147,7 @@ function UserRow({ user, onUpdated, onDeleted, navigate }) {
   return (
     <tr
       className={`${styles.tr} ${styles.trClickable}`}
-      onClick={() => navigate(`/dashboard/users/${user.id}`)}
+      onClick={() => navigate(`/dashboard/users/${user.id}`, { state: { user } })}
     >
       <td className={styles.td}>
         <div className={styles.userCell}>
@@ -189,6 +189,9 @@ function UserRow({ user, onUpdated, onDeleted, navigate }) {
   )
 }
 
+const USERS_CACHE_KEY = 'dashboard_users_cache'
+const USERS_CACHE_TTL = 5 * 60 * 1000 // 5 minutos
+
 export default function Dashboard() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -198,9 +201,23 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchUsers = async () => {
+      // Intentar usar caché primero
+      try {
+        const raw = sessionStorage.getItem(USERS_CACHE_KEY)
+        if (raw) {
+          const { ts, data } = JSON.parse(raw)
+          if (Date.now() - ts < USERS_CACHE_TTL) {
+            setUsers(data)
+            setLoading(false)
+            return
+          }
+        }
+      } catch { /* caché corrupta, ignorar */ }
       try {
         const snap = await getDocs(collection(db, 'users'))
-        setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        setUsers(data)
+        sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }))
       } catch (err) {
         setError('No se pudo cargar la lista de usuarios. Verifica las reglas de Firestore.')
         console.error(err)
@@ -217,11 +234,19 @@ export default function Dashboard() {
   }
 
   const handleUpdated = (userId, fields) => {
-    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, ...fields } : u))
+    setUsers((prev) => {
+      const updated = prev.map((u) => u.id === userId ? { ...u, ...fields } : u)
+      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated }))
+      return updated
+    })
   }
 
   const handleDeleted = (userId) => {
-    setUsers((prev) => prev.filter((u) => u.id !== userId))
+    setUsers((prev) => {
+      const updated = prev.filter((u) => u.id !== userId)
+      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated }))
+      return updated
+    })
   }
 
   const filtered = users.filter((u) => {

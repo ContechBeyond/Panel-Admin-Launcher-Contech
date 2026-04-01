@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { db, auth } from '../firebase'
 import styles from './UserDetail.module.css'
 
@@ -495,10 +495,18 @@ function ContactsSection({ userId, initialContacts }) {
 export default function UserDetail() {
   const { userId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Si venimos del Dashboard, los datos ya están en el state del router — sin lectura extra
+    const stateUser = location.state?.user
+    if (stateUser && stateUser.id === userId) {
+      setUser(stateUser)
+      setLoading(false)
+      return
+    }
     getDoc(doc(db, 'users', userId))
       .then((snap) => { if (snap.exists()) setUser({ id: snap.id, ...snap.data() }) })
       .finally(() => setLoading(false))

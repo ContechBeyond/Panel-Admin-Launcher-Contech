@@ -24,18 +24,26 @@ export default function App() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) {
+        sessionStorage.removeItem('adminUid')
+        sessionStorage.removeItem('dashboard_users_cache')
         setIsAdmin(false)
+        setReady(true)
+        return
+      }
+      // Cache hit: skip Firestore read if ya verificamos este UID en esta sesión
+      if (sessionStorage.getItem('adminUid') === u.uid) {
+        setIsAdmin(true)
         setReady(true)
         return
       }
       try {
         const snap = await getDoc(doc(db, 'users', u.uid))
         if (snap.exists() && snap.data().role === 'admin') {
+          sessionStorage.setItem('adminUid', u.uid)
           setIsAdmin(true)
         } else {
           setIsAdmin(false)
           await signOut(auth)
-          // Forzar redirect con mensaje — guardado en sessionStorage para sobrevivir el signOut
           sessionStorage.setItem('authError', 'No tienes permisos para acceder al panel de administración.')
         }
       } catch {
