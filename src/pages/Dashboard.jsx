@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { useState, useEffect, useRef } from 'react'
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit, startAfter, documentId } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { db, auth } from '../firebase'
@@ -191,33 +191,52 @@ function UserRow({ user, onUpdated, onDeleted, navigate }) {
 
 const USERS_CACHE_KEY = 'dashboard_users_cache'
 const USERS_CACHE_TTL = 5 * 60 * 1000 // 5 minutos
+const PAGE_SIZE = 20
 
 export default function Dashboard() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
+  const lastIdRef = useRef(null)
   const navigate = useNavigate()
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      // Intentar usar caché primero
-      try {
-        const raw = sessionStorage.getItem(USERS_CACHE_KEY)
-        if (raw) {
-          const { ts, data } = JSON.parse(raw)
-          if (Date.now() - ts < USERS_CACHE_TTL) {
-            setUsers(data)
-            setLoading(false)
-            return
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      lastIdRef.current = null
+
+      // Caché solo en carga inicial (refreshKey === 0)
+      if (refreshKey === 0) {
+        try {
+          const raw = sessionStorage.getItem(USERS_CACHE_KEY)
+          if (raw) {
+            const { ts, data, hasMore: cachedHasMore, lastId } = JSON.parse(raw)
+            if (Date.now() - ts < USERS_CACHE_TTL) {
+              setUsers(data)
+              setHasMore(cachedHasMore)
+              lastIdRef.current = lastId || null
+              setLoading(false)
+              return
+            }
           }
-        }
-      } catch { /* caché corrupta, ignorar */ }
+        } catch { /* caché corrupta, ignorar */ }
+      }
+
       try {
-        const snap = await getDocs(collection(db, 'users'))
+        const q = query(collection(db, 'users'), orderBy(documentId()), limit(PAGE_SIZE))
+        const snap = await getDocs(q)
         const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        const more = snap.docs.length === PAGE_SIZE
+        const lastId = snap.docs[snap.docs.length - 1]?.id || null
+        lastIdRef.current = lastId
         setUsers(data)
-        sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }))
+        setHasMore(more)
+        sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data, hasMore: more, lastId }))
       } catch (err) {
         setError('No se pudo cargar la lista de usuarios. Verifica las reglas de Firestore.')
         console.error(err)
@@ -225,8 +244,37 @@ export default function Dashboard() {
         setLoading(false)
       }
     }
-    fetchUsers()
-  }, [])
+    load()
+  }, [refreshKey])
+
+  const handleLoadMore = async () => {
+    if (!lastIdRef.current || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const q = query(collection(db, 'users'), orderBy(documentId()), startAfter(lastIdRef.current), limit(PAGE_SIZE))
+      const snap = await getDocs(q)
+      const newData = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const more = snap.docs.length === PAGE_SIZE
+      const lastId = snap.docs[snap.docs.length - 1]?.id || null
+      lastIdRef.current = lastId
+      setUsers((prev) => {
+        const updated = [...prev, ...newData]
+        sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore: more, lastId }))
+        return updated
+      })
+      setHasMore(more)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const handleRefresh = () => {
+    sessionStorage.removeItem(USERS_CACHE_KEY)
+    setSearch('')
+    setRefreshKey((k) => k + 1)
+  }
 
   const handleLogout = async () => {
     await signOut(auth)
@@ -236,7 +284,7 @@ export default function Dashboard() {
   const handleUpdated = (userId, fields) => {
     setUsers((prev) => {
       const updated = prev.map((u) => u.id === userId ? { ...u, ...fields } : u)
-      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated }))
+      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore, lastId: lastIdRef.current }))
       return updated
     })
   }
@@ -244,7 +292,7 @@ export default function Dashboard() {
   const handleDeleted = (userId) => {
     setUsers((prev) => {
       const updated = prev.filter((u) => u.id !== userId)
-      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated }))
+      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore, lastId: lastIdRef.current }))
       return updated
     })
   }
@@ -300,7 +348,9 @@ export default function Dashboard() {
             <h1 className={styles.pageTitle}>Usuarios</h1>
             <p className={styles.pageSubtitle}>Lista de usuarios registrados en la aplicación</p>
           </div>
-          <div className={styles.headerBadge}>{users.length} registros</div>
+          <div className={styles.headerBadge}>
+            {users.length} cargados{hasMore ? '+' : ''}
+          </div>
         </header>
 
         {/* Toolbar */}
@@ -317,6 +367,14 @@ export default function Dashboard() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <button className={styles.refreshBtn} onClick={handleRefresh} disabled={loading} title="Actualizar lista">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={loading ? { animation: 'spin 0.8s linear infinite' } : {}}>
+              <path d="M23 4v6h-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M1 20v-6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Actualizar
+          </button>
         </div>
 
         {/* States */}
@@ -333,7 +391,8 @@ export default function Dashboard() {
 
         {/* Table */}
         {!loading && !error && (
-          <div className={styles.tableWrap}>
+          <>
+            <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -364,6 +423,15 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+          {hasMore && !search && (
+            <div className={styles.loadMoreWrap}>
+              <button className={styles.loadMoreBtn} onClick={handleLoadMore} disabled={loadingMore}>
+                {loadingMore ? <span className={styles.microSpinner} /> : null}
+                {loadingMore ? 'Cargando...' : 'Cargar más usuarios'}
+              </button>
+            </div>
+          )}
+          </>
         )}
       </main>
     </div>
