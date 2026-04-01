@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit, startAfter, documentId } from 'firebase/firestore'
+﻿import { useState, useEffect, useRef } from 'react'
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit, startAfter, startAt, endAt, documentId } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { db, auth } from '../firebase'
@@ -194,23 +194,37 @@ const USERS_CACHE_TTL = 5 * 60 * 1000 // 5 minutos
 const PAGE_SIZE = 20
 
 export default function Dashboard() {
+  // Modo browse (sin búsqueda)
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
   const lastIdRef = useRef(null)
+
+  // Modo search
+  const [search, setSearch] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchHasMore, setSearchHasMore] = useState(false)
+  const lastSearchDocRef = useRef(null)
+  const searchTermRef = useRef('')
+  const debounceRef = useRef(null)
+
+  const [loadingMore, setLoadingMore] = useState(false)
   const navigate = useNavigate()
 
+  const isSearchMode = search.trim().length > 0
+  const displayUsers = isSearchMode ? searchResults : users
+  const displayLoading = isSearchMode ? searchLoading : loading
+  const displayHasMore = isSearchMode ? searchHasMore : hasMore
+
+  // Browse: carga paginada
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       setError('')
       lastIdRef.current = null
-
-      // Caché solo en carga inicial (refreshKey === 0)
       if (refreshKey === 0) {
         try {
           const raw = sessionStorage.getItem(USERS_CACHE_KEY)
@@ -226,7 +240,6 @@ export default function Dashboard() {
           }
         } catch { /* caché corrupta, ignorar */ }
       }
-
       try {
         const q = query(collection(db, 'users'), orderBy(documentId()), limit(PAGE_SIZE))
         const snap = await getDocs(q)
@@ -247,22 +260,79 @@ export default function Dashboard() {
     load()
   }, [refreshKey])
 
+  // Search: server-side con debounce 400ms
+  useEffect(() => {
+    const term = search.trim()
+    if (!term) {
+      setSearchResults([])
+      setSearchHasMore(false)
+      lastSearchDocRef.current = null
+      return
+    }
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setSearchLoading(true)
+      setSearchHasMore(false)
+      lastSearchDocRef.current = null
+      const normalized = term.charAt(0).toUpperCase() + term.slice(1)
+      searchTermRef.current = normalized
+      try {
+        const q = query(
+          collection(db, 'users'),
+          orderBy('name'),
+          startAt(normalized),
+          endAt(normalized + '\uf8ff'),
+          limit(PAGE_SIZE)
+        )
+        const snap = await getDocs(q)
+        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        lastSearchDocRef.current = snap.docs[snap.docs.length - 1] || null
+        setSearchResults(data)
+        setSearchHasMore(snap.docs.length === PAGE_SIZE)
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 400)
+    return () => clearTimeout(debounceRef.current)
+  }, [search])
+
+  // Cargar más (browse o search)
   const handleLoadMore = async () => {
-    if (!lastIdRef.current || loadingMore) return
+    if (loadingMore) return
     setLoadingMore(true)
     try {
-      const q = query(collection(db, 'users'), orderBy(documentId()), startAfter(lastIdRef.current), limit(PAGE_SIZE))
-      const snap = await getDocs(q)
-      const newData = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      const more = snap.docs.length === PAGE_SIZE
-      const lastId = snap.docs[snap.docs.length - 1]?.id || null
-      lastIdRef.current = lastId
-      setUsers((prev) => {
-        const updated = [...prev, ...newData]
-        sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore: more, lastId }))
-        return updated
-      })
-      setHasMore(more)
+      if (isSearchMode) {
+        if (!lastSearchDocRef.current) return
+        const q = query(
+          collection(db, 'users'),
+          orderBy('name'),
+          startAt(searchTermRef.current),
+          endAt(searchTermRef.current + '\uf8ff'),
+          startAfter(lastSearchDocRef.current),
+          limit(PAGE_SIZE)
+        )
+        const snap = await getDocs(q)
+        const newData = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        lastSearchDocRef.current = snap.docs[snap.docs.length - 1] || null
+        setSearchResults((prev) => [...prev, ...newData])
+        setSearchHasMore(snap.docs.length === PAGE_SIZE)
+      } else {
+        if (!lastIdRef.current) return
+        const q = query(collection(db, 'users'), orderBy(documentId()), startAfter(lastIdRef.current), limit(PAGE_SIZE))
+        const snap = await getDocs(q)
+        const newData = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        const more = snap.docs.length === PAGE_SIZE
+        const lastId = snap.docs[snap.docs.length - 1]?.id || null
+        lastIdRef.current = lastId
+        setUsers((prev) => {
+          const updated = [...prev, ...newData]
+          sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore: more, lastId }))
+          return updated
+        })
+        setHasMore(more)
+      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -287,6 +357,7 @@ export default function Dashboard() {
       sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore, lastId: lastIdRef.current }))
       return updated
     })
+    setSearchResults((prev) => prev.map((u) => u.id === userId ? { ...u, ...fields } : u))
   }
 
   const handleDeleted = (userId) => {
@@ -295,19 +366,11 @@ export default function Dashboard() {
       sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore, lastId: lastIdRef.current }))
       return updated
     })
+    setSearchResults((prev) => prev.filter((u) => u.id !== userId))
   }
-
-  const filtered = users.filter((u) => {
-    const term = search.toLowerCase()
-    return (
-      (u.name || '').toLowerCase().includes(term) ||
-      (u.role || '').toLowerCase().includes(term)
-    )
-  })
 
   return (
     <div className={styles.layout}>
-      {/* Sidebar */}
       <aside className={styles.sidebar}>
         <div className={styles.sidebarBrand}>
           <div className={styles.logoRing}>
@@ -318,7 +381,6 @@ export default function Dashboard() {
           </div>
           <span className={styles.sidebarBrandName}>Contech</span>
         </div>
-
         <nav className={styles.nav}>
           <span className={styles.navLabel}>Menú</span>
           <a className={`${styles.navItem} ${styles.navItemActive}`}>
@@ -330,7 +392,6 @@ export default function Dashboard() {
             Usuarios
           </a>
         </nav>
-
         <button className={styles.logoutBtn} onClick={handleLogout}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -341,7 +402,6 @@ export default function Dashboard() {
         </button>
       </aside>
 
-      {/* Main content */}
       <main className={styles.main}>
         <header className={styles.header}>
           <div>
@@ -349,11 +409,12 @@ export default function Dashboard() {
             <p className={styles.pageSubtitle}>Lista de usuarios registrados en la aplicación</p>
           </div>
           <div className={styles.headerBadge}>
-            {users.length} cargados{hasMore ? '+' : ''}
+            {isSearchMode
+              ? `${searchResults.length} resultado${searchResults.length !== 1 ? 's' : ''}`
+              : `${users.length} cargados${hasMore ? '+' : ''}`}
           </div>
         </header>
 
-        {/* Toolbar */}
         <div className={styles.toolbar}>
           <div className={styles.searchWrap}>
             <svg className={styles.searchIcon} width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -362,10 +423,17 @@ export default function Dashboard() {
             </svg>
             <input
               className={styles.searchInput}
-              placeholder="Buscar por nombre o rol..."
+              placeholder="Buscar por nombre..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            {search && (
+              <button className={styles.searchClear} onClick={() => setSearch('')} title="Limpiar">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
           </div>
           <button className={styles.refreshBtn} onClick={handleRefresh} disabled={loading} title="Actualizar lista">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={loading ? { animation: 'spin 0.8s linear infinite' } : {}}>
@@ -377,11 +445,10 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* States */}
-        {loading && (
+        {displayLoading && (
           <div className={styles.stateBox}>
             <span className={styles.bigSpinner} />
-            <p>Cargando usuarios...</p>
+            <p>{isSearchMode ? 'Buscando...' : 'Cargando usuarios...'}</p>
           </div>
         )}
 
@@ -389,48 +456,47 @@ export default function Dashboard() {
           <div className={styles.errorBox}>{error}</div>
         )}
 
-        {/* Table */}
-        {!loading && !error && (
+        {!displayLoading && !error && (
           <>
             <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.th}>Nombre</th>
-                  <th className={styles.th}>Rol</th>
-                  <th className={styles.th}>UID</th>
-                  <th className={styles.th}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
+              <table className={styles.table}>
+                <thead>
                   <tr>
-                    <td colSpan={4} className={styles.empty}>
-                      {search ? 'Sin resultados para la búsqueda.' : 'No hay usuarios registrados.'}
-                    </td>
+                    <th className={styles.th}>Nombre</th>
+                    <th className={styles.th}>Rol</th>
+                    <th className={styles.th}>UID</th>
+                    <th className={styles.th}>Acciones</th>
                   </tr>
-                ) : (
-                  filtered.map((u) => (
-                    <UserRow
-                      key={u.id}
-                      user={u}
-                      onUpdated={handleUpdated}
-                      onDeleted={handleDeleted}
-                      navigate={navigate}
-                    />
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          {hasMore && !search && (
-            <div className={styles.loadMoreWrap}>
-              <button className={styles.loadMoreBtn} onClick={handleLoadMore} disabled={loadingMore}>
-                {loadingMore ? <span className={styles.microSpinner} /> : null}
-                {loadingMore ? 'Cargando...' : 'Cargar más usuarios'}
-              </button>
+                </thead>
+                <tbody>
+                  {displayUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className={styles.empty}>
+                        {isSearchMode ? 'No se encontraron usuarios con ese nombre.' : 'No hay usuarios registrados.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    displayUsers.map((u) => (
+                      <UserRow
+                        key={u.id}
+                        user={u}
+                        onUpdated={handleUpdated}
+                        onDeleted={handleDeleted}
+                        navigate={navigate}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
+            {displayHasMore && (
+              <div className={styles.loadMoreWrap}>
+                <button className={styles.loadMoreBtn} onClick={handleLoadMore} disabled={loadingMore}>
+                  {loadingMore ? <span className={styles.microSpinner} /> : null}
+                  {loadingMore ? 'Cargando...' : 'Cargar más usuarios'}
+                </button>
+              </div>
+            )}
           </>
         )}
       </main>
