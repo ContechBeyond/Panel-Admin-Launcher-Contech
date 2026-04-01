@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from './firebase'
@@ -50,7 +50,7 @@ export default function App() {
   }, [])
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route
           path="/login"
@@ -74,7 +74,7 @@ export default function App() {
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 
