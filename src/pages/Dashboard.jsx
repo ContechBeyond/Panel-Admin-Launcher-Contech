@@ -226,8 +226,15 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
     }
   }
 
-  const exampleApp = `["com.whatsapp", "com.spotify", "com.example.app"]`
-  const exampleContact = `[{"name": "Soporte", "number": "+521234567890"}, {"name": "Ventas", "number": "+529876543210"}]`
+  const exampleApp = `[\n  "com.whatsapp",\n  "com.spotify",\n  "com.example.app"\n]`
+  const exampleContact = `[\n  { "name": "Soporte", "number": "+521234567890" },\n  { "name": "Ventas", "number": "+529876543210" }\n]`
+  const example = isApp ? exampleApp : exampleContact
+  const [copied, setCopied] = useState(false)
+  const handleCopyFormat = () => {
+    navigator.clipboard.writeText(example)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
@@ -248,9 +255,24 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
               autoFocus
               spellCheck={false}
             />
-            <p className={styles.modalHint}>
-              {isApp ? 'Array JSON de package names.' : 'Array JSON de objetos con "name" y "number".'}
-            </p>
+            <div className={styles.modalHintRow}>
+              <p className={styles.modalHint}>
+                {isApp ? 'Array JSON de package names.' : 'Array JSON de objetos con "name" y "number".'}
+              </p>
+              <button className={styles.copyFormatBtn} onClick={handleCopyFormat} type="button">
+                {copied ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                )}
+                {copied ? 'Copiado' : 'Copiar formato'}
+              </button>
+            </div>
           </>
         ) : isApp ? (
           <input
