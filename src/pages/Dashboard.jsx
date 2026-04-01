@@ -5,13 +5,17 @@ import { useNavigate } from 'react-router-dom'
 import { db, auth } from '../firebase'
 import styles from './Dashboard.module.css'
 
-// Genera tokens de búsqueda: todos los prefijos de cada parte del nombre/email
-// "femsa.martinez@dominio.com" → ["fe","fem","femsa","ma","mar",...,"martinez",...]
+// Genera tokens de búsqueda: todas las subcadenas ≥ 2 chars de cada segmento
+// "martinezdelatorre" → incluye "torre", "lat", "dela", etc.
 function generateSearchTokens(name) {
   if (!name) return []
   const tokens = new Set()
   name.toLowerCase().split(/[\s.@_\-/\\+,;:]+/).filter(Boolean).forEach((part) => {
-    for (let i = 2; i <= part.length; i++) tokens.add(part.substring(0, i))
+    for (let i = 0; i < part.length - 1; i++) {
+      for (let j = i + 2; j <= part.length; j++) {
+        tokens.add(part.substring(i, j))
+      }
+    }
   })
   return [...tokens]
 }
