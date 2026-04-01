@@ -172,23 +172,51 @@ function UserRow({ user, onUpdated, onDeleted, navigate, selectionMode, selected
 
 // Modal para operaciones masivas
 function BulkModal({ action, selectedCount, onConfirm, onClose }) {
-  const [appPkg, setAppPkg] = useState('')
+  const [jsonInput, setJsonInput] = useState('')
+  const [singlePkg, setSinglePkg] = useState('')
   const [contactName, setContactName] = useState('')
   const [contactNumber, setContactNumber] = useState('')
+  const [jsonError, setJsonError] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
 
   const isApp = action === 'addApp' || action === 'removeApp'
   const isAdd = action === 'addApp' || action === 'addContact'
-  const titles = { addApp: 'Agregar app', removeApp: 'Quitar app', addContact: 'Agregar contacto', removeContact: 'Quitar contacto' }
+  const titles = { addApp: 'Agregar apps', removeApp: 'Quitar app', addContact: 'Agregar contactos', removeContact: 'Quitar contacto' }
+
+  const parseAndValidate = () => {
+    setJsonError('')
+    if (isAdd) {
+      let parsed
+      try { parsed = JSON.parse(jsonInput) } catch { setJsonError('JSON invalido. Revisa la sintaxis.'); return null }
+      if (!Array.isArray(parsed) || parsed.length === 0) { setJsonError('Debe ser un array no vacio: [ ... ]'); return null }
+      if (isApp) {
+        if (!parsed.every((x) => typeof x === 'string' && x.trim())) { setJsonError('Cada elemento debe ser un string (package name).'); return null }
+        return parsed.map((x) => x.trim())
+      } else {
+        if (!parsed.every((x) => x && typeof x.name === 'string' && typeof x.number === 'string' && x.name.trim() && x.number.trim())) {
+          setJsonError('Cada objeto debe tener "name" y "number" como strings no vacios.')
+          return null
+        }
+        return parsed.map((x) => ({ name: x.name.trim(), number: x.number.trim() }))
+      }
+    } else {
+      if (isApp) {
+        if (!singlePkg.trim()) { setJsonError('Ingresa el package name.'); return null }
+        return singlePkg.trim()
+      } else {
+        if (!contactName.trim() || !contactNumber.trim()) { setJsonError('Ingresa nombre y numero.'); return null }
+        return { name: contactName.trim(), number: contactNumber.trim() }
+      }
+    }
+  }
 
   const handleSubmit = async () => {
-    if (isApp && !appPkg.trim()) return
-    if (!isApp && (!contactName.trim() || !contactNumber.trim())) return
+    const payload = parseAndValidate()
+    if (payload === null) return
     setLoading(true)
     setResult(null)
     try {
-      const payload = isApp ? appPkg.trim() : { name: contactName.trim(), number: contactNumber.trim() }
       await onConfirm(action, payload)
       setResult('ok')
     } catch {
@@ -197,6 +225,9 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
       setLoading(false)
     }
   }
+
+  const exampleApp = `["com.whatsapp", "com.spotify", "com.example.app"]`
+  const exampleContact = `[{"name": "Soporte", "number": "+521234567890"}, {"name": "Ventas", "number": "+529876543210"}]`
 
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
@@ -207,12 +238,26 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
           {!isAdd && ' Si algun usuario no tiene el elemento, se omitira sin error.'}
           {isAdd && ' Si algun usuario ya lo tiene, no se duplicara.'}
         </p>
-        {isApp ? (
+        {isAdd ? (
+          <>
+            <textarea
+              className={styles.modalTextarea}
+              placeholder={isApp ? exampleApp : exampleContact}
+              value={jsonInput}
+              onChange={(e) => { setJsonInput(e.target.value); setJsonError('') }}
+              autoFocus
+              spellCheck={false}
+            />
+            <p className={styles.modalHint}>
+              {isApp ? 'Array JSON de package names.' : 'Array JSON de objetos con "name" y "number".'}
+            </p>
+          </>
+        ) : isApp ? (
           <input
             className={styles.modalInput}
             placeholder="Package name (ej: com.whatsapp)"
-            value={appPkg}
-            onChange={(e) => setAppPkg(e.target.value)}
+            value={singlePkg}
+            onChange={(e) => setSinglePkg(e.target.value)}
             autoFocus
           />
         ) : (
@@ -221,6 +266,7 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
             <input className={styles.modalInput} placeholder="Numero (ej: +521234567890)" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} style={{ marginTop: '0.6rem' }} />
           </>
         )}
+        {jsonError && <p className={styles.modalError}>{jsonError}</p>}
         {result === 'ok' && <p className={styles.modalSuccess}>Operacion completada en {selectedCount} usuarios.</p>}
         {result === 'error' && <p className={styles.modalError}>Ocurrio un error. Revisa la consola.</p>}
         <div className={styles.modalActions}>
@@ -434,7 +480,8 @@ export default function Dashboard() {
     const ids = [...selectedIds]
     const isAdd = action === 'addApp' || action === 'addContact'
     const field = action === 'addApp' || action === 'removeApp' ? 'apps' : 'contacts'
-    const fieldValue = isAdd ? arrayUnion(payload) : arrayRemove(payload)
+    // payload is an array when adding (spread into arrayUnion), single item when removing
+    const fieldValue = isAdd ? arrayUnion(...payload) : arrayRemove(payload)
     for (let i = 0; i < ids.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
       ids.slice(i, i + BATCH_SIZE).forEach((id) => batch.update(doc(db, 'users', id), { [field]: fieldValue }))

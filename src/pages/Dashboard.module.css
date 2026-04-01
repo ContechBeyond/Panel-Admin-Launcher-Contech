@@ -1093,3 +1093,29 @@
   margin-top: 1.4rem;
   justify-content: flex-end;
 }
+
+.modalTextarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 0.65rem 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-family: 'Courier New', monospace;
+  outline: none;
+  box-sizing: border-box;
+  resize: vertical;
+  transition: border-color 0.2s;
+  line-height: 1.5;
+}
+.modalTextarea::placeholder { color: rgba(255,255,255,0.2); }
+.modalTextarea:focus { border-color: rgba(192, 57, 43, 0.6); box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12); }
+
+.modalHint {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0.4rem 0 0;
+  line-height: 1.4;
+}
