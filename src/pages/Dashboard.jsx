@@ -1,9 +1,20 @@
 ﻿import { useState, useEffect, useRef } from 'react'
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit, startAfter, startAt, endAt, documentId } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where, limit, startAfter, documentId } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { db, auth } from '../firebase'
 import styles from './Dashboard.module.css'
+
+// Genera tokens de búsqueda: todos los prefijos de cada parte del nombre/email
+// "femsa.martinez@dominio.com" → ["fe","fem","femsa","ma","mar",...,"martinez",...]
+function generateSearchTokens(name) {
+  if (!name) return []
+  const tokens = new Set()
+  name.toLowerCase().split(/[\s.@_\-/\\+,;:]+/).filter(Boolean).forEach((part) => {
+    for (let i = 2; i <= part.length; i++) tokens.add(part.substring(0, i))
+  })
+  return [...tokens]
+}
 
 function Avatar({ name }) {
   const letter = (name || '?')[0].toUpperCase()
@@ -38,7 +49,7 @@ function UserRow({ user, onUpdated, onDeleted, navigate }) {
     setSaving(true)
     setRowError('')
     try {
-      await updateDoc(doc(db, 'users', user.id), { name })
+      await updateDoc(doc(db, 'users', user.id), { name, searchTokens: generateSearchTokens(name) })
       onUpdated(user.id, { name })
       setMode('view')
     } catch (err) {
@@ -212,6 +223,7 @@ export default function Dashboard() {
   const debounceRef = useRef(null)
 
   const [loadingMore, setLoadingMore] = useState(false)
+  const [reindexing, setReindexing] = useState(false)
   const navigate = useNavigate()
 
   const isSearchMode = search.trim().length > 0
@@ -274,14 +286,12 @@ export default function Dashboard() {
       setSearchLoading(true)
       setSearchHasMore(false)
       lastSearchDocRef.current = null
-      const normalized = term.charAt(0).toUpperCase() + term.slice(1)
-      searchTermRef.current = normalized
+      const token = term.toLowerCase()
+      searchTermRef.current = token
       try {
         const q = query(
           collection(db, 'users'),
-          orderBy('name'),
-          startAt(normalized),
-          endAt(normalized + '\uf8ff'),
+          where('searchTokens', 'array-contains', token),
           limit(PAGE_SIZE)
         )
         const snap = await getDocs(q)
@@ -307,9 +317,7 @@ export default function Dashboard() {
         if (!lastSearchDocRef.current) return
         const q = query(
           collection(db, 'users'),
-          orderBy('name'),
-          startAt(searchTermRef.current),
-          endAt(searchTermRef.current + '\uf8ff'),
+          where('searchTokens', 'array-contains', searchTermRef.current),
           startAfter(lastSearchDocRef.current),
           limit(PAGE_SIZE)
         )
@@ -344,6 +352,32 @@ export default function Dashboard() {
     sessionStorage.removeItem(USERS_CACHE_KEY)
     setSearch('')
     setRefreshKey((k) => k + 1)
+  }
+
+  // Migración: indexa todos los usuarios existentes con searchTokens
+  const handleReindex = async () => {
+    setReindexing(true)
+    try {
+      let lastDoc = null
+      let hasMoreDocs = true
+      while (hasMoreDocs) {
+        const q = lastDoc
+          ? query(collection(db, 'users'), orderBy(documentId()), startAfter(lastDoc), limit(50))
+          : query(collection(db, 'users'), orderBy(documentId()), limit(50))
+        const snap = await getDocs(q)
+        await Promise.all(
+          snap.docs.map((d) => updateDoc(d.ref, { searchTokens: generateSearchTokens(d.data().name) }))
+        )
+        hasMoreDocs = snap.docs.length === 50
+        lastDoc = snap.docs[snap.docs.length - 1] || null
+      }
+      sessionStorage.removeItem(USERS_CACHE_KEY)
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setReindexing(false)
+    }
   }
 
   const handleLogout = async () => {
@@ -442,6 +476,14 @@ export default function Dashboard() {
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Actualizar
+          </button>
+          <button className={styles.reindexBtn} onClick={handleReindex} disabled={reindexing} title="Indexar todos los usuarios para búsqueda por subcadena">
+            {reindexing ? <span className={styles.microSpinner} /> : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+            {reindexing ? 'Indexando...' : 'Indexar búsqueda'}
           </button>
         </div>
 
