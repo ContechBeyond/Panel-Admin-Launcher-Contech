@@ -534,6 +534,21 @@ export default function Dashboard() {
             </svg>
             Usuarios
           </a>
+          <span className={styles.navLabel} style={{ marginTop: '1rem' }}>Descargas</span>
+          <a
+            className={styles.navItem}
+            href="https://firebasestorage.googleapis.com/v0/b/launcher-contech.firebasestorage.app/o/Launcher%20Contech.apk?alt=media"
+            download="Launcher Contech.apk"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            Launcher Contech
+          </a>
         </nav>
         <button className={styles.logoutBtn} onClick={handleLogout}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
