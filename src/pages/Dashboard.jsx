@@ -346,16 +346,8 @@ export default function Dashboard() {
   const displayHasMore = isSearchMode ? searchHasMore : hasMore
 
   const handleLoadFirst = async () => {
+    sessionStorage.removeItem(USERS_CACHE_KEY)
     setLoading(true); setError(''); lastIdRef.current = null
-    try {
-      const raw = sessionStorage.getItem(USERS_CACHE_KEY)
-      if (raw) {
-        const { ts, data, hasMore: h, lastId } = JSON.parse(raw)
-        if (Date.now() - ts < USERS_CACHE_TTL) {
-          setUsers(data); setHasMore(h); lastIdRef.current = lastId || null; return
-        }
-      }
-    } catch { /* ignorar */ }
     try {
       const q = query(collection(db, 'users'), orderBy(documentId()), limit(PAGE_SIZE))
       const snap = await getDocs(q)
@@ -363,7 +355,6 @@ export default function Dashboard() {
       const more = snap.docs.length === PAGE_SIZE
       const lastId = snap.docs[snap.docs.length - 1]?.id || null
       lastIdRef.current = lastId; setUsers(data); setHasMore(more)
-      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data, hasMore: more, lastId }))
     } catch (err) { setError('No se pudo cargar la lista de usuarios.'); console.error(err) }
     finally { setLoading(false) }
   }
