@@ -314,21 +314,21 @@ const BATCH_SIZE = 499
 
 export default function Dashboard() {
   const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState('')
-  const [refreshKey, setRefreshKey] = useState(0)
   const lastIdRef = useRef(null)
 
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchHasMore, setSearchHasMore] = useState(false)
+  const [searchActive, setSearchActive] = useState(false) // true cuando se ha buscado al menos una vez
   const lastSearchDocRef = useRef(null)
   const searchTermRef = useRef('')
-  const debounceRef = useRef(null)
 
   const [loadingMore, setLoadingMore] = useState(false)
+  const [loadingAll, setLoadingAll] = useState(false)
   const [reindexing, setReindexing] = useState(false)
 
   // Seleccion masiva
@@ -340,57 +340,72 @@ export default function Dashboard() {
 
   const navigate = useNavigate()
 
-  const isSearchMode = search.trim().length > 0
+  const isSearchMode = searchActive
   const displayUsers = isSearchMode ? searchResults : users
-  const displayLoading = isSearchMode ? searchLoading : loading
+  const displayLoading = isSearchMode ? searchLoading : (loading || loadingAll)
   const displayHasMore = isSearchMode ? searchHasMore : hasMore
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true); setError(''); lastIdRef.current = null
-      if (refreshKey === 0) {
-        try {
-          const raw = sessionStorage.getItem(USERS_CACHE_KEY)
-          if (raw) {
-            const { ts, data, hasMore: h, lastId } = JSON.parse(raw)
-            if (Date.now() - ts < USERS_CACHE_TTL) {
-              setUsers(data); setHasMore(h); lastIdRef.current = lastId || null; setLoading(false); return
-            }
-          }
-        } catch { /* ignorar */ }
+  const handleLoadFirst = async () => {
+    setLoading(true); setError(''); lastIdRef.current = null
+    try {
+      const raw = sessionStorage.getItem(USERS_CACHE_KEY)
+      if (raw) {
+        const { ts, data, hasMore: h, lastId } = JSON.parse(raw)
+        if (Date.now() - ts < USERS_CACHE_TTL) {
+          setUsers(data); setHasMore(h); lastIdRef.current = lastId || null; return
+        }
       }
-      try {
-        const q = query(collection(db, 'users'), orderBy(documentId()), limit(PAGE_SIZE))
-        const snap = await getDocs(q)
-        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        const more = snap.docs.length === PAGE_SIZE
-        const lastId = snap.docs[snap.docs.length - 1]?.id || null
-        lastIdRef.current = lastId; setUsers(data); setHasMore(more)
-        sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data, hasMore: more, lastId }))
-      } catch (err) { setError('No se pudo cargar la lista de usuarios. Verifica las reglas de Firestore.'); console.error(err) }
-      finally { setLoading(false) }
-    }
-    load()
-  }, [refreshKey])
+    } catch { /* ignorar */ }
+    try {
+      const q = query(collection(db, 'users'), orderBy(documentId()), limit(PAGE_SIZE))
+      const snap = await getDocs(q)
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const more = snap.docs.length === PAGE_SIZE
+      const lastId = snap.docs[snap.docs.length - 1]?.id || null
+      lastIdRef.current = lastId; setUsers(data); setHasMore(more)
+      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data, hasMore: more, lastId }))
+    } catch (err) { setError('No se pudo cargar la lista de usuarios.'); console.error(err) }
+    finally { setLoading(false) }
+  }
 
-  useEffect(() => {
-    const term = search.trim()
-    if (!term) { setSearchResults([]); setSearchHasMore(false); lastSearchDocRef.current = null; return }
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(async () => {
-      setSearchLoading(true); setSearchHasMore(false); lastSearchDocRef.current = null
-      const token = term.toLowerCase(); searchTermRef.current = token
-      try {
-        const q = query(collection(db, 'users'), where('searchTokens', 'array-contains', token), limit(PAGE_SIZE))
+  const handleLoadAll = async () => {
+    setLoadingAll(true); setError(''); lastIdRef.current = null
+    let all = []
+    try {
+      let lastDoc = null; let morePages = true
+      while (morePages) {
+        const q = lastDoc
+          ? query(collection(db, 'users'), orderBy(documentId()), startAfter(lastDoc), limit(PAGE_SIZE))
+          : query(collection(db, 'users'), orderBy(documentId()), limit(PAGE_SIZE))
         const snap = await getDocs(q)
-        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        lastSearchDocRef.current = snap.docs[snap.docs.length - 1] || null
-        setSearchResults(data); setSearchHasMore(snap.docs.length === PAGE_SIZE)
-      } catch (err) { console.error(err) }
-      finally { setSearchLoading(false) }
-    }, 400)
-    return () => clearTimeout(debounceRef.current)
-  }, [search])
+        all = [...all, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))]
+        morePages = snap.docs.length === PAGE_SIZE
+        lastDoc = snap.docs[snap.docs.length - 1] || null
+      }
+      lastIdRef.current = null; setUsers(all); setHasMore(false)
+      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: all, hasMore: false, lastId: null }))
+    } catch (err) { setError('Error al cargar todos los usuarios.'); console.error(err) }
+    finally { setLoadingAll(false) }
+  }
+
+  const handleSearch = async () => {
+    const term = search.trim()
+    if (!term) return
+    setSearchActive(true); setSearchLoading(true); setSearchHasMore(false); lastSearchDocRef.current = null
+    const token = term.toLowerCase(); searchTermRef.current = token
+    try {
+      const q = query(collection(db, 'users'), where('searchTokens', 'array-contains', token), limit(PAGE_SIZE))
+      const snap = await getDocs(q)
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      lastSearchDocRef.current = snap.docs[snap.docs.length - 1] || null
+      setSearchResults(data); setSearchHasMore(snap.docs.length === PAGE_SIZE)
+    } catch (err) { console.error(err) }
+    finally { setSearchLoading(false) }
+  }
+
+  const handleClearSearch = () => {
+    setSearch(''); setSearchActive(false); setSearchResults([]); setSearchHasMore(false); lastSearchDocRef.current = null
+  }
 
   const handleLoadMore = async () => {
     if (loadingMore) return
@@ -421,7 +436,11 @@ export default function Dashboard() {
     finally { setLoadingMore(false) }
   }
 
-  const handleRefresh = () => { sessionStorage.removeItem(USERS_CACHE_KEY); setSearch(''); setRefreshKey((k) => k + 1) }
+  const handleRefresh = () => {
+    sessionStorage.removeItem(USERS_CACHE_KEY)
+    handleClearSearch()
+    setUsers([]); setHasMore(false); lastIdRef.current = null; setError('')
+  }
 
   const handleReindex = async () => {
     setReindexing(true)
@@ -436,7 +455,8 @@ export default function Dashboard() {
         hasMoreDocs = snap.docs.length === 50
         lastDoc = snap.docs[snap.docs.length - 1] || null
       }
-      sessionStorage.removeItem(USERS_CACHE_KEY); setRefreshKey((k) => k + 1)
+      sessionStorage.removeItem(USERS_CACHE_KEY)
+      setUsers([]); setHasMore(false); lastIdRef.current = null
     } catch (err) { console.error(err) }
     finally { setReindexing(false) }
   }
@@ -571,7 +591,9 @@ export default function Dashboard() {
               ? `${selectedIds.size} seleccionado${selectedIds.size !== 1 ? 's' : ''}`
               : isSearchMode
                 ? `${searchResults.length} resultado${searchResults.length !== 1 ? 's' : ''}`
-                : `${users.length} cargados${hasMore ? '+' : ''}`}
+                : users.length > 0
+                  ? `${users.length} cargados${hasMore ? '+' : ''}`
+                  : 'Sin cargar'}
           </div>
         </header>
 
@@ -583,16 +605,31 @@ export default function Dashboard() {
                 <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
                 <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
-              <input className={styles.searchInput} placeholder="Buscar por nombre..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              {search && (
-                <button className={styles.searchClear} onClick={() => setSearch('')} title="Limpiar">
+              <input
+                className={styles.searchInput}
+                placeholder="Buscar por nombre..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              />
+              {(search || searchActive) && (
+                <button className={styles.searchClear} onClick={handleClearSearch} title="Limpiar">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                     <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                   </svg>
                 </button>
               )}
             </div>
-            <button className={styles.refreshBtn} onClick={handleRefresh} disabled={loading} title="Actualizar lista">
+            <button className={styles.searchBtn} onClick={handleSearch} disabled={searchLoading || !search.trim()} title="Buscar">
+              {searchLoading ? <span className={styles.microSpinner} /> : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              )}
+              Buscar
+            </button>
+            <button className={styles.refreshBtn} onClick={handleRefresh} disabled={loading || loadingAll} title="Limpiar y resetear">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={loading ? { animation: 'spin 0.8s linear infinite' } : {}}>
                 <path d="M23 4v6h-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M1 20v-6h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -644,13 +681,34 @@ export default function Dashboard() {
         {displayLoading && (
           <div className={styles.stateBox}>
             <span className={styles.bigSpinner} />
-            <p>{isSearchMode ? 'Buscando...' : 'Cargando usuarios...'}</p>
+            <p>{isSearchMode ? 'Buscando...' : loadingAll ? 'Cargando todos...' : 'Cargando usuarios...'}</p>
           </div>
         )}
 
-        {error && !loading && <div className={styles.errorBox}>{error}</div>}
+        {error && !displayLoading && <div className={styles.errorBox}>{error}</div>}
 
-        {!displayLoading && !error && (
+        {!displayLoading && !error && !isSearchMode && users.length === 0 && (
+          <div className={styles.emptyStart}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className={styles.emptyStartIcon}>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <p className={styles.emptyStartText}>No hay usuarios cargados</p>
+            <div className={styles.emptyStartBtns}>
+              <button className={styles.loadFirstBtn} onClick={handleLoadFirst} disabled={loading}>
+                {loading ? <span className={styles.microSpinner} /> : null}
+                {loading ? 'Cargando...' : 'Cargar primeros 20'}
+              </button>
+              <button className={styles.loadAllBtn} onClick={handleLoadAll} disabled={loadingAll}>
+                {loadingAll ? <span className={styles.microSpinner} /> : null}
+                {loadingAll ? 'Cargando...' : 'Cargar todos'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!displayLoading && !error && (users.length > 0 || isSearchMode) && (
           <>
             <div className={styles.tableWrap}>
               <table className={styles.table}>
@@ -682,7 +740,7 @@ export default function Dashboard() {
                       </td>
                     </tr>
                   ) : (
-                    displayUsers.map((u) => (
+                    displayUsers.map((u) => (  
                       <UserRow
                         key={u.id}
                         user={u}
