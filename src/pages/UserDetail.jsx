@@ -499,6 +499,27 @@ export default function UserDetail() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const [callBlockerLocal, setCallBlockerLocal] = useState(null)
+  const [savingCallBlocker, setSavingCallBlocker] = useState(false)
+
+  useEffect(() => {
+    if (user) setCallBlockerLocal(user.callBlockerEnabled ?? true)
+  }, [user?.id])
+
+  const callBlockerDirty = callBlockerLocal !== null && callBlockerLocal !== (user?.callBlockerEnabled ?? true)
+
+  const saveCallBlocker = async () => {
+    setSavingCallBlocker(true)
+    try {
+      await updateDoc(doc(db, 'users', userId), { callBlockerEnabled: callBlockerLocal })
+      setUser(prev => ({ ...prev, callBlockerEnabled: callBlockerLocal }))
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingCallBlocker(false)
+    }
+  }
+
   useEffect(() => {
     // Si venimos del Dashboard, los datos ya están en el state del router — sin lectura extra
     const stateUser = location.state?.user
@@ -577,6 +598,42 @@ export default function UserDetail() {
               <span className={`${styles.roleBadge} ${styles['role_' + (user.role || '').toLowerCase()]}`}>
                 {user.role || '—'}
               </span>
+            </div>
+
+            <div className={styles.callBlockerCard}>
+              <div className={styles.callBlockerLeft}>
+                <div className={styles.callBlockerIcon}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.42 19.42 0 0 1 4.26 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.17 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.15 8.91a16 16 0 0 0 3.53 4.4z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <div>
+                  <div className={styles.callBlockerTitle}>Bloqueador de llamadas</div>
+                  <div className={styles.callBlockerDesc}>
+                    {(callBlockerLocal ?? true) ? 'Activo — bloquea llamadas entrantes' : 'Inactivo — llamadas permitidas'}
+                  </div>
+                </div>
+              </div>
+              <div className={styles.callBlockerRight}>
+                <label className={styles.toggleSwitch}>
+                  <input
+                    type="checkbox"
+                    className={styles.toggleInput}
+                    checked={callBlockerLocal ?? true}
+                    onChange={e => setCallBlockerLocal(e.target.checked)}
+                  />
+                  <span className={styles.toggleTrack}>
+                    <span className={styles.toggleThumb} />
+                  </span>
+                </label>
+                {callBlockerDirty && (
+                  <button className={styles.confirmBtn} onClick={saveCallBlocker} disabled={savingCallBlocker}>
+                    {savingCallBlocker ? <span className={styles.microSpinner} /> : null}
+                    Confirmar
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className={styles.sections}>

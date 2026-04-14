@@ -405,3 +405,57 @@
 .errorBox { padding: 0.9rem 1.2rem; background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.25); border-radius: 10px; color: #f1948a; font-size: 0.875rem; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Call Blocker Card ────────────────────────────────────── */
+.callBlockerCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.callBlockerLeft { display: flex; align-items: center; gap: 0.9rem; }
+.callBlockerIcon {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: rgba(192,57,43,0.12); border: 1px solid rgba(192,57,43,0.2);
+  display: flex; align-items: center; justify-content: center;
+  color: #e74c3c; flex-shrink: 0;
+}
+.callBlockerTitle { font-size: 0.9rem; font-weight: 600; color: #fff; margin-bottom: 0.2rem; }
+.callBlockerDesc { font-size: 0.78rem; color: rgba(255,255,255,0.4); }
+.callBlockerRight { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+
+/* ── Toggle Switch ────────────────────────────────────────── */
+.toggleSwitch { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.toggleInput { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggleTrack {
+  width: 44px; height: 24px; border-radius: 999px;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.12);
+  position: relative; display: flex; align-items: center;
+  transition: background 0.2s, border-color 0.2s;
+}
+.toggleInput:checked + .toggleTrack { background: rgba(192,57,43,0.75); border-color: rgba(192,57,43,0.5); }
+.toggleThumb {
+  position: absolute; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(255,255,255,0.5); transition: left 0.2s, background 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+}
+.toggleInput:checked + .toggleTrack .toggleThumb { left: calc(100% - 19px); background: #fff; }
+
+/* ── Confirm Button ───────────────────────────────────────── */
+.confirmBtn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.38rem 0.85rem;
+  background: linear-gradient(135deg, #c0392b, #a93226);
+  border: none; border-radius: 7px;
+  color: #fff; font-size: 0.8rem; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.confirmBtn:hover:not(:disabled) { opacity: 0.85; }
+.confirmBtn:disabled { opacity: 0.55; cursor: not-allowed; }
