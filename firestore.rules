@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    match /users/{userId} {
+
+      // Usuario normal (solo su info)
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Admin (puede acceder a todos)
+      allow read, write: if isAdmin();
+
+      // NOTA: apps y contacts se guardan como arrays dentro del doc del usuario,
+      // no como subcolecciones. Estos dos bloques no se usan hoy (se conservan por si acaso).
+      match /contacts/{contactId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isAdmin();
+      }
+
+      match /apps/{appId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isAdmin();
+      }
+    }
+
+  }
+}

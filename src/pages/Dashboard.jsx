@@ -19,6 +19,12 @@ function generateSearchTokens(name) {
   return [...tokens]
 }
 
+// Filtra por nombre exigiendo todas las palabras del término (búsquedas multi-palabra)
+function matchesAllWords(name, words) {
+  const n = (name || '').toLowerCase()
+  return words.every((w) => n.includes(w))
+}
+
 function Avatar({ name }) {
   const letter = (name || '?')[0].toUpperCase()
   return <div className={styles.avatar}>{letter}</div>
@@ -47,8 +53,9 @@ function UserRow({ user, onUpdated, onDeleted, navigate, selectionMode, selected
     if (!name) { setRowError('El nombre no puede estar vacio.'); return }
     setSaving(true); setRowError('')
     try {
-      await updateDoc(doc(db, 'users', user.id), { name, searchTokens: generateSearchTokens(name) })
-      onUpdated(user.id, { name }); setMode('view')
+      const searchTokens = generateSearchTokens(name)
+      await updateDoc(doc(db, 'users', user.id), { name, searchTokens })
+      onUpdated(user.id, { name, searchTokens }); setMode('view')
     } catch (err) { setRowError('Error al guardar.'); console.error(err) }
     finally { setSaving(false) }
   }
@@ -326,6 +333,7 @@ export default function Dashboard() {
   const [searchActive, setSearchActive] = useState(false) // true cuando se ha buscado al menos una vez
   const lastSearchDocRef = useRef(null)
   const searchTermRef = useRef('')
+  const searchWordsRef = useRef([])
 
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadingAll, setLoadingAll] = useState(false)
@@ -339,6 +347,19 @@ export default function Dashboard() {
   const [bulkAction, setBulkAction] = useState(null)
 
   const navigate = useNavigate()
+
+  // Restaura lista cacheada al montar → evita relecturas de Firebase al volver de un detalle
+  useEffect(() => {
+    const raw = sessionStorage.getItem(USERS_CACHE_KEY)
+    if (!raw) return
+    try {
+      const cached = JSON.parse(raw)
+      if (!cached || Date.now() - cached.ts > USERS_CACHE_TTL) { sessionStorage.removeItem(USERS_CACHE_KEY); return }
+      setUsers(cached.data || [])
+      setHasMore(!!cached.hasMore)
+      lastIdRef.current = cached.lastId || null
+    } catch { sessionStorage.removeItem(USERS_CACHE_KEY) }
+  }, [])
 
   const isSearchMode = searchActive
   const displayUsers = isSearchMode ? searchResults : users
@@ -355,6 +376,7 @@ export default function Dashboard() {
       const more = snap.docs.length === PAGE_SIZE
       const lastId = snap.docs[snap.docs.length - 1]?.id || null
       lastIdRef.current = lastId; setUsers(data); setHasMore(more)
+      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data, hasMore: more, lastId }))
     } catch (err) { setError('No se pudo cargar la lista de usuarios.'); console.error(err) }
     finally { setLoading(false) }
   }
@@ -380,14 +402,18 @@ export default function Dashboard() {
   }
 
   const handleSearch = async () => {
-    const term = search.trim()
-    if (!term) return
+    const words = search.trim().toLowerCase().split(/\s+/).filter((w) => w.length >= 2)
+    if (words.length === 0) return
+    // Consulta por la palabra más larga (es un token indexado) y filtra el resto en cliente.
+    // ponytail: multi-palabra depende de que cada palabra sea un segmento tokenizado + filtro cliente;
+    // una página puede mostrar <20 coincidencias aunque haya más en servidor. Suficiente para el panel.
+    const queryToken = words.reduce((a, b) => (b.length > a.length ? b : a))
+    searchTermRef.current = queryToken; searchWordsRef.current = words
     setSearchActive(true); setSearchLoading(true); setSearchHasMore(false); lastSearchDocRef.current = null
-    const token = term.toLowerCase(); searchTermRef.current = token
     try {
-      const q = query(collection(db, 'users'), where('searchTokens', 'array-contains', token), limit(PAGE_SIZE))
+      const q = query(collection(db, 'users'), where('searchTokens', 'array-contains', queryToken), limit(PAGE_SIZE))
       const snap = await getDocs(q)
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => matchesAllWords(u.name, words))
       lastSearchDocRef.current = snap.docs[snap.docs.length - 1] || null
       setSearchResults(data); setSearchHasMore(snap.docs.length === PAGE_SIZE)
     } catch (err) { console.error(err) }
@@ -406,7 +432,7 @@ export default function Dashboard() {
         if (!lastSearchDocRef.current) return
         const q = query(collection(db, 'users'), where('searchTokens', 'array-contains', searchTermRef.current), startAfter(lastSearchDocRef.current), limit(PAGE_SIZE))
         const snap = await getDocs(q)
-        const newData = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        const newData = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => matchesAllWords(u.name, searchWordsRef.current))
         lastSearchDocRef.current = snap.docs[snap.docs.length - 1] || null
         setSearchResults((prev) => [...prev, ...newData]); setSearchHasMore(snap.docs.length === PAGE_SIZE)
       } else {
@@ -513,7 +539,9 @@ export default function Dashboard() {
     const ids = [...selectedIds]
     const isAdd = action === 'addApp' || action === 'addContact'
     const field = action === 'addApp' || action === 'removeApp' ? 'apps' : 'contacts'
-    // payload is an array when adding (spread into arrayUnion), single item when removing
+    // payload is an array when adding (spread into arrayUnion), single item when removing.
+    // ponytail: arrayRemove(objeto) exige match exacto (name+number). Un match manual costaría
+    // 1 lectura por doc (mata la cuota gratis), así que se mantiene: el input debe coincidir tal cual.
     const fieldValue = isAdd ? arrayUnion(...payload) : arrayRemove(payload)
     for (let i = 0; i < ids.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)

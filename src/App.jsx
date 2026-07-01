@@ -36,6 +36,7 @@ export default function App() {
         setReady(true)
         return
       }
+      setReady(false) // verificando rol — muestra loader en vez de redirigir (evita flash de login)
       try {
         const snap = await getDoc(doc(db, 'users', u.uid))
         if (snap.exists() && snap.data().role === 'admin') {

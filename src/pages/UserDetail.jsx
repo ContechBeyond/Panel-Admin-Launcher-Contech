@@ -195,7 +195,7 @@ function AppsSection({ userId, initialApps }) {
                   {apps.map((pkg, i) => {
                     if (confirmDeleteIndex === i) {
                       return (
-                        <tr key={i} className={`${styles.tr} ${styles.trDeleting}`}>
+                        <tr key={pkg} className={`${styles.tr} ${styles.trDeleting}`}>
                           <td className={styles.td}><span className={styles.deleteConfirmText}>Eliminar <strong>{pkg}</strong>?</span></td>
                           <td className={styles.td}>
                             <div className={styles.actionBtns}>
@@ -208,7 +208,7 @@ function AppsSection({ userId, initialApps }) {
                     }
                     if (editingIndex === i) {
                       return (
-                        <tr key={i} className={`${styles.tr} ${styles.trEditing}`}>
+                        <tr key={pkg} className={`${styles.tr} ${styles.trEditing}`}>
                           <td className={styles.td}><input className={styles.editInput} value={editDraft} onChange={e => setEditDraft(e.target.value)} autoFocus /></td>
                           <td className={styles.td}>
                             <div className={styles.actionBtns}>
@@ -221,7 +221,7 @@ function AppsSection({ userId, initialApps }) {
                       )
                     }
                     return (
-                      <tr key={i} className={styles.tr}>
+                      <tr key={pkg} className={styles.tr}>
                         <td className={styles.td}>{pkg}</td>
                         <td className={styles.td}>
                           <div className={styles.actionBtns}>
@@ -501,6 +501,7 @@ export default function UserDetail() {
 
   const [callBlockerLocal, setCallBlockerLocal] = useState(null)
   const [savingCallBlocker, setSavingCallBlocker] = useState(false)
+  const [callBlockerError, setCallBlockerError] = useState('')
 
   useEffect(() => {
     if (user) setCallBlockerLocal(user.callBlockerEnabled ?? true)
@@ -509,12 +510,13 @@ export default function UserDetail() {
   const callBlockerDirty = callBlockerLocal !== null && callBlockerLocal !== (user?.callBlockerEnabled ?? true)
 
   const saveCallBlocker = async () => {
-    setSavingCallBlocker(true)
+    setSavingCallBlocker(true); setCallBlockerError('')
     try {
       await updateDoc(doc(db, 'users', userId), { callBlockerEnabled: callBlockerLocal })
       setUser(prev => ({ ...prev, callBlockerEnabled: callBlockerLocal }))
     } catch (e) {
       console.error(e)
+      setCallBlockerError('No se pudo guardar. Intenta de nuevo.')
     } finally {
       setSavingCallBlocker(false)
     }
@@ -633,6 +635,7 @@ export default function UserDetail() {
                     Confirmar
                   </button>
                 )}
+                {callBlockerError && <span className={styles.addError}>{callBlockerError}</span>}
               </div>
             </div>
 
