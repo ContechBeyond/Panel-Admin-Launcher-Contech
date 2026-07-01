@@ -409,19 +409,19 @@ export default function Dashboard() {
     // una página puede mostrar <20 coincidencias aunque haya más en servidor. Suficiente para el panel.
     const queryToken = words.reduce((a, b) => (b.length > a.length ? b : a))
     searchTermRef.current = queryToken; searchWordsRef.current = words
-    setSearchActive(true); setSearchLoading(true); setSearchHasMore(false); lastSearchDocRef.current = null
+    setSearchActive(true); setSearchLoading(true); setSearchHasMore(false); lastSearchDocRef.current = null; setError('')
     try {
       const q = query(collection(db, 'users'), where('searchTokens', 'array-contains', queryToken), limit(PAGE_SIZE))
       const snap = await getDocs(q)
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => matchesAllWords(u.name, words))
       lastSearchDocRef.current = snap.docs[snap.docs.length - 1] || null
       setSearchResults(data); setSearchHasMore(snap.docs.length === PAGE_SIZE)
-    } catch (err) { console.error(err) }
+    } catch (err) { setError('Error al buscar. Intenta de nuevo.'); console.error(err) }
     finally { setSearchLoading(false) }
   }
 
   const handleClearSearch = () => {
-    setSearch(''); setSearchActive(false); setSearchResults([]); setSearchHasMore(false); lastSearchDocRef.current = null
+    setSearch(''); setSearchActive(false); setSearchResults([]); setSearchHasMore(false); lastSearchDocRef.current = null; setError('')
   }
 
   const handleLoadMore = async () => {
@@ -548,7 +548,20 @@ export default function Dashboard() {
       ids.slice(i, i + BATCH_SIZE).forEach((id) => batch.update(doc(db, 'users', id), { [field]: fieldValue }))
       await batch.commit()
     }
-    sessionStorage.removeItem(USERS_CACHE_KEY)
+    // Espejo local de arrayUnion/arrayRemove → lista y cache al día sin relecturas
+    const applyLocal = (u) => {
+      const arr = u[field] || []
+      const next = isAdd
+        ? [...arr, ...payload.filter((p) => !arr.some((x) => JSON.stringify(x) === JSON.stringify(p)))]
+        : arr.filter((x) => JSON.stringify(x) !== JSON.stringify(payload))
+      return { ...u, [field]: next }
+    }
+    setUsers((prev) => {
+      const updated = prev.map((u) => selectedIds.has(u.id) ? applyLocal(u) : u)
+      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore, lastId: lastIdRef.current }))
+      return updated
+    })
+    setSearchResults((prev) => prev.map((u) => selectedIds.has(u.id) ? applyLocal(u) : u))
   }
 
   return (

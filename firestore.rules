@@ -9,23 +9,13 @@ service cloud.firestore {
 
     match /users/{userId} {
 
-      // Usuario normal (solo su info)
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Usuario normal (launcher): SOLO LECTURA de su propio doc.
+      // Nunca write: evitaría que se auto-asigne role admin, se agregue apps,
+      // o desactive el bloqueador de llamadas.
+      allow read: if request.auth != null && request.auth.uid == userId;
 
-      // Admin (puede acceder a todos)
+      // Admin (panel): acceso total
       allow read, write: if isAdmin();
-
-      // NOTA: apps y contacts se guardan como arrays dentro del doc del usuario,
-      // no como subcolecciones. Estos dos bloques no se usan hoy (se conservan por si acaso).
-      match /contacts/{contactId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-        allow read, write: if isAdmin();
-      }
-
-      match /apps/{appId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-        allow read, write: if isAdmin();
-      }
     }
 
   }
