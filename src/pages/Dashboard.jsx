@@ -3,6 +3,7 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch, arrayUnion,
 import { signOut } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { db, auth } from '../firebase'
+import { phoneKey } from '../utils/phone'
 import styles from './Dashboard.module.css'
 
 // Genera tokens de búsqueda: todas las subcadenas >= 2 chars de cada segmento
@@ -40,7 +41,7 @@ function UserRow({ user, onUpdated, onDeleted, navigate, selectionMode, selected
   const isAdmin = user.role === 'admin'
 
   const handleRowClick = () => {
-    if (selectionMode) { onToggleSelect(user.id); return }
+    if (selectionMode) { onToggleSelect(user); return }
     navigate(`/dashboard/users/${user.id}`, { state: { user } })
   }
 
@@ -136,7 +137,7 @@ function UserRow({ user, onUpdated, onDeleted, navigate, selectionMode, selected
     >
       {selectionMode && (
         <td className={styles.tdCheck} onClick={(e) => e.stopPropagation()}>
-          <input type="checkbox" className={styles.checkbox} checked={selected} onChange={() => onToggleSelect(user.id)} />
+          <input type="checkbox" className={styles.checkbox} checked={selected} onChange={() => onToggleSelect(user)} />
         </td>
       )}
       <td className={styles.td}>
@@ -186,6 +187,7 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
   const [jsonError, setJsonError] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [report, setReport] = useState(null)
 
   const isApp = action === 'addApp' || action === 'removeApp'
   const isAdd = action === 'addApp' || action === 'addContact'
@@ -224,7 +226,8 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
     setLoading(true)
     setResult(null)
     try {
-      await onConfirm(action, payload)
+      const res = await onConfirm(action, payload)
+      setReport(res || null)
       setResult('ok')
     } catch {
       setResult('error')
@@ -250,7 +253,8 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
         <p className={styles.modalSubtitle}>
           Se aplicara a <strong>{selectedCount}</strong> usuario{selectedCount !== 1 ? 's' : ''}.
           {!isAdd && ' Si algun usuario no tiene el elemento, se omitira sin error.'}
-          {isAdd && ' Si algun usuario ya lo tiene, no se duplicara.'}
+          {isAdd && action === 'addContact' && ' Los numeros duplicados no se agregan (se comparan los ultimos 10 digitos; el nombre no importa).'}
+          {isAdd && action === 'addApp' && ' Si algun usuario ya lo tiene, no se duplicara.'}
         </p>
         {isAdd ? (
           <>
@@ -296,7 +300,18 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
           </>
         )}
         {jsonError && <p className={styles.modalError}>{jsonError}</p>}
-        {result === 'ok' && <p className={styles.modalSuccess}>Operacion completada en {selectedCount} usuarios.</p>}
+        {result === 'ok' && (
+          action === 'addContact' && report ? (
+            <p className={report.usersWritten === 0 ? styles.modalError : styles.modalSuccess}>
+              {report.usersWritten === 0
+                ? 'Ningun contacto agregado: todos los usuarios seleccionados ya tenian ese numero (duplicado).'
+                : `Contactos agregados en ${report.usersWritten} usuario${report.usersWritten !== 1 ? 's' : ''}.`}
+              {report.dupSkipped > 0 && ` ${report.dupSkipped} omitido${report.dupSkipped !== 1 ? 's' : ''} por numero duplicado.`}
+            </p>
+          ) : (
+            <p className={styles.modalSuccess}>Operacion completada en {selectedCount} usuarios.</p>
+          )
+        )}
         {result === 'error' && <p className={styles.modalError}>Ocurrio un error. Revisa la consola.</p>}
         <div className={styles.modalActions}>
           {result !== 'ok' && (
@@ -342,6 +357,8 @@ export default function Dashboard() {
   // Seleccion masiva
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const [selectedUsers, setSelectedUsers] = useState(new Map()) // id -> user obj (cache p/ mostrar nombres de seleccionados invisibles)
+  const [selectedFilter, setSelectedFilter] = useState('')
   const [companyInput, setCompanyInput] = useState('')
   const [companyLoading, setCompanyLoading] = useState(false)
   const [bulkAction, setBulkAction] = useState(null)
@@ -500,19 +517,23 @@ export default function Dashboard() {
 
   // === Seleccion masiva ===
   const toggleSelectionMode = () => {
-    setSelectionMode((v) => { if (v) setSelectedIds(new Set()); return !v })
-    setCompanyInput('')
+    setSelectionMode((v) => { if (v) { setSelectedIds(new Set()); setSelectedUsers(new Map()) } return !v })
+    setCompanyInput(''); setSelectedFilter('')
   }
 
-  const handleToggleSelect = (id) => {
-    setSelectedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next })
+  const handleToggleSelect = (user) => {
+    setSelectedIds((prev) => { const next = new Set(prev); next.has(user.id) ? next.delete(user.id) : next.add(user.id); return next })
+    setSelectedUsers((prev) => { const m = new Map(prev); m.set(user.id, user); return m })
   }
 
   const handleSelectVisible = () => {
     setSelectedIds((prev) => { const next = new Set(prev); displayUsers.forEach((u) => next.add(u.id)); return next })
+    setSelectedUsers((prev) => { const m = new Map(prev); displayUsers.forEach((u) => m.set(u.id, u)); return m })
   }
 
-  const handleDeselectAll = () => setSelectedIds(new Set())
+  const handleDeselectAll = () => { setSelectedIds(new Set()); setSelectedUsers(new Map()) }
+
+  const handleDeselectOne = (id) => setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next })
 
   const handleSelectByCompany = async () => {
     const company = companyInput.trim().toLowerCase()
@@ -520,17 +541,18 @@ export default function Dashboard() {
     setCompanyLoading(true)
     try {
       const ids = new Set(selectedIds)
+      const objs = new Map(selectedUsers)
       let lastDoc = null; let morePages = true
       while (morePages) {
         const q = lastDoc
           ? query(collection(db, 'users'), where('searchTokens', 'array-contains', company), startAfter(lastDoc), limit(200))
           : query(collection(db, 'users'), where('searchTokens', 'array-contains', company), limit(200))
         const snap = await getDocs(q)
-        snap.docs.forEach((d) => ids.add(d.id))
+        snap.docs.forEach((d) => { ids.add(d.id); objs.set(d.id, { id: d.id, ...d.data() }) })
         morePages = snap.docs.length === 200
         lastDoc = snap.docs[snap.docs.length - 1] || null
       }
-      setSelectedIds(ids)
+      setSelectedIds(ids); setSelectedUsers(objs)
     } catch (err) { console.error(err) }
     finally { setCompanyLoading(false) }
   }
@@ -539,18 +561,47 @@ export default function Dashboard() {
     const ids = [...selectedIds]
     const isAdd = action === 'addApp' || action === 'addContact'
     const field = action === 'addApp' || action === 'removeApp' ? 'apps' : 'contacts'
+
+    // === addContact: dedup por numero (ultimos 10 digitos) SIN lecturas extra ===
+    // Los contactos actuales ya estan en `selectedUsers` (cacheados al seleccionar), asi que
+    // calculamos por usuario que numeros faltan. Usuario 100% duplicado => no se escribe (menos escrituras).
+    // El nombre no importa: solo cuenta el numero. `contactAdds`: id -> contactos nuevos a agregar.
+    const contactAdds = new Map()
+    let dupSkipped = 0
+    if (action === 'addContact') {
+      for (const id of ids) {
+        const existing = selectedUsers.get(id)?.contacts || []
+        const seen = new Set(existing.map((c) => phoneKey(c.number)))
+        const toAdd = []
+        for (const c of payload) {
+          const k = phoneKey(c.number)
+          if (k && seen.has(k)) { dupSkipped++; continue }
+          seen.add(k); toAdd.push(c)
+        }
+        if (toAdd.length) contactAdds.set(id, toAdd)
+      }
+    }
+
+    // Solo escribimos en usuarios que realmente cambian.
     // payload is an array when adding (spread into arrayUnion), single item when removing.
     // ponytail: arrayRemove(objeto) exige match exacto (name+number). Un match manual costaría
     // 1 lectura por doc (mata la cuota gratis), así que se mantiene: el input debe coincidir tal cual.
-    const fieldValue = isAdd ? arrayUnion(...payload) : arrayRemove(payload)
-    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const writeIds = action === 'addContact' ? [...contactAdds.keys()] : ids
+    for (let i = 0; i < writeIds.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
-      ids.slice(i, i + BATCH_SIZE).forEach((id) => batch.update(doc(db, 'users', id), { [field]: fieldValue }))
+      writeIds.slice(i, i + BATCH_SIZE).forEach((id) => {
+        const fieldValue = action === 'addContact'
+          ? arrayUnion(...contactAdds.get(id))
+          : isAdd ? arrayUnion(...payload) : arrayRemove(payload)
+        batch.update(doc(db, 'users', id), { [field]: fieldValue })
+      })
       await batch.commit()
     }
+
     // Espejo local de arrayUnion/arrayRemove → lista y cache al día sin relecturas
     const applyLocal = (u) => {
       const arr = u[field] || []
+      if (action === 'addContact') return { ...u, contacts: [...arr, ...(contactAdds.get(u.id) || [])] }
       const next = isAdd
         ? [...arr, ...payload.filter((p) => !arr.some((x) => JSON.stringify(x) === JSON.stringify(p)))]
         : arr.filter((x) => JSON.stringify(x) !== JSON.stringify(payload))
@@ -562,6 +613,14 @@ export default function Dashboard() {
       return updated
     })
     setSearchResults((prev) => prev.map((u) => selectedIds.has(u.id) ? applyLocal(u) : u))
+    // Mantener cache de seleccionados al dia para evitar re-agregar si se confirma otra vez
+    setSelectedUsers((prev) => {
+      const m = new Map(prev)
+      selectedIds.forEach((id) => { const u = m.get(id); if (u) m.set(id, applyLocal(u)) })
+      return m
+    })
+
+    return { total: ids.length, usersWritten: writeIds.length, dupSkipped }
   }
 
   return (
@@ -669,6 +728,7 @@ export default function Dashboard() {
               </svg>
               Actualizar
             </button>
+            {/* Boton "Indexar busqueda" oculto: evita escrituras innecesarias. handleReindex se conserva por si se necesita reactivar.
             <button className={styles.reindexBtn} onClick={handleReindex} disabled={reindexing} title="Indexar busqueda">
               {reindexing ? <span className={styles.microSpinner} /> : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -677,6 +737,7 @@ export default function Dashboard() {
               )}
               {reindexing ? 'Indexando...' : 'Indexar busqueda'}
             </button>
+            */}
             <button className={styles.selectModeBtn} onClick={toggleSelectionMode} title="Seleccionar usuarios para operaciones masivas">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -707,6 +768,36 @@ export default function Dashboard() {
               </div>
             </div>
             <button className={styles.exitSelectionBtn} onClick={toggleSelectionMode}>Cancelar</button>
+          </div>
+        )}
+
+        {/* Lista de seleccionados: revisar y desmarcar antes de la operacion masiva */}
+        {selectionMode && selectedIds.size > 0 && (
+          <div className={styles.selectedPanel}>
+            <div className={styles.selectedPanelHead}>
+              <span className={styles.selectedPanelTitle}>
+                {selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''} — revisa y desmarca los que no quieras modificar
+              </span>
+              {selectedIds.size > 8 && (
+                <input
+                  className={styles.selectedFilterInput}
+                  placeholder="Filtrar seleccionados..."
+                  value={selectedFilter}
+                  onChange={(e) => setSelectedFilter(e.target.value)}
+                />
+              )}
+            </div>
+            <div className={styles.selectedChips}>
+              {[...selectedIds]
+                .map((id) => selectedUsers.get(id) || { id, name: id })
+                .filter((u) => { const f = selectedFilter.trim().toLowerCase(); return !f || (u.name || u.id).toLowerCase().includes(f) })
+                .map((u) => (
+                  <span key={u.id} className={styles.selectedChip}>
+                    <span className={styles.selectedChipName}>{u.name || u.id}</span>
+                    <button className={styles.selectedChipRemove} onClick={() => handleDeselectOne(u.id)} title="Quitar de la seleccion">×</button>
+                  </span>
+                ))}
+            </div>
           </div>
         )}
 
@@ -752,8 +843,12 @@ export default function Dashboard() {
                           checked={displayUsers.length > 0 && displayUsers.every((u) => selectedIds.has(u.id))}
                           onChange={() => {
                             const allSelected = displayUsers.every((u) => selectedIds.has(u.id))
-                            allSelected ? setSelectedIds((prev) => { const n = new Set(prev); displayUsers.forEach((u) => n.delete(u.id)); return n })
-                              : setSelectedIds((prev) => { const n = new Set(prev); displayUsers.forEach((u) => n.add(u.id)); return n })
+                            if (allSelected) {
+                              setSelectedIds((prev) => { const n = new Set(prev); displayUsers.forEach((u) => n.delete(u.id)); return n })
+                            } else {
+                              setSelectedIds((prev) => { const n = new Set(prev); displayUsers.forEach((u) => n.add(u.id)); return n })
+                              setSelectedUsers((prev) => { const m = new Map(prev); displayUsers.forEach((u) => m.set(u.id, u)); return m })
+                            }
                           }}
                         />
                       </th>

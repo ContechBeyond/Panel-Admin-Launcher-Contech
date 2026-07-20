@@ -3,6 +3,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { db, auth } from '../firebase'
+import { phoneKey, isDuplicateNumber } from '../utils/phone'
 import styles from './UserDetail.module.css'
 
 function Avatar({ name }) {
@@ -279,6 +280,7 @@ function ContactsSection({ userId, initialContacts }) {
     e.preventDefault()
     const name = newName.trim(); const number = newNumber.trim()
     if (!name || !number) { setAddError('Completa ambos campos.'); return }
+    if (isDuplicateNumber(number, contacts)) { setAddError('Numero duplicado: ya existe un contacto con ese numero. No se agrego.'); return }
     setSaving(true); setAddError('')
     try { await persist([...contacts, { name, number }]); setNewName(''); setNewNumber(''); setShowAddForm(false) }
     catch { setAddError('Error al anadir.') }
@@ -293,13 +295,16 @@ function ContactsSection({ userId, initialContacts }) {
     catch { setBulkError('JSON invalido. Verifica el formato.'); return }
     if (!Array.isArray(parsed)) { setBulkError('Debe ser un array [ ... ].'); return }
     setBulkImporting(true)
-    let added = 0, skipped = 0
+    let added = 0, skipped = 0, dup = 0
     const toAdd = []
+    const seen = new Set(contacts.map((c) => phoneKey(c.number))) // numeros ya existentes + los que se van agregando
     for (const item of parsed) {
       const name = String(item.name || '').trim()
       const number = String(item.number || '').trim()
       if (!name || !number) { skipped++; continue }
-      toAdd.push({ name, number }); added++
+      const k = phoneKey(number)
+      if (k && seen.has(k)) { dup++; continue } // duplicado por ultimos 10 digitos: no se agrega
+      seen.add(k); toAdd.push({ name, number }); added++
     }
     if (added > 0) {
       try { await persist([...contacts, ...toAdd]) }
@@ -308,7 +313,8 @@ function ContactsSection({ userId, initialContacts }) {
     setBulkImporting(false)
     const parts = []
     if (added > 0) parts.push(`${added} importado${added !== 1 ? 's' : ''}`)
-    if (skipped > 0) parts.push(`${skipped} omitido${skipped !== 1 ? 's' : ''}`)
+    if (dup > 0) parts.push(`${dup} duplicado${dup !== 1 ? 's' : ''} omitido${dup !== 1 ? 's' : ''}`)
+    if (skipped > 0) parts.push(`${skipped} invalido${skipped !== 1 ? 's' : ''} omitido${skipped !== 1 ? 's' : ''}`)
     setBulkResult(parts.join(', '))
     if (added > 0) { setBulkJson(''); setShowBulkForm(false) }
   }
@@ -323,6 +329,7 @@ function ContactsSection({ userId, initialContacts }) {
   const handleEdit = async (index) => {
     const name = editDraft.name.trim(); const number = editDraft.number.trim()
     if (!name || !number) { setEditError('Completa ambos campos.'); return }
+    if (isDuplicateNumber(number, contacts.filter((_, i) => i !== index))) { setEditError('Numero duplicado: ya existe otro contacto con ese numero.'); return }
     setEditSaving(true); setEditError('')
     try {
       const newContacts = [...contacts]; newContacts[index] = { name, number }
