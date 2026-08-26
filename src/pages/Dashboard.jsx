@@ -214,8 +214,10 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
         if (!singlePkg.trim()) { setJsonError('Ingresa el package name.'); return null }
         return singlePkg.trim()
       } else {
-        if (!contactName.trim() || !contactNumber.trim()) { setJsonError('Ingresa nombre y numero.'); return null }
-        return { name: contactName.trim(), number: contactNumber.trim() }
+        // removeContact: solo el numero. Se normaliza (ultimos 10 digitos) y se borra
+        // cualquier contacto que coincida, sin importar nombre ni formato guardado.
+        if (!contactNumber.trim()) { setJsonError('Ingresa el numero.'); return null }
+        return contactNumber.trim()
       }
     }
   }
@@ -252,7 +254,8 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
         <h3 className={styles.modalTitle}>{titles[action]}</h3>
         <p className={styles.modalSubtitle}>
           Se aplicara a <strong>{selectedCount}</strong> usuario{selectedCount !== 1 ? 's' : ''}.
-          {!isAdd && ' Si algun usuario no tiene el elemento, se omitira sin error.'}
+          {!isAdd && action !== 'removeContact' && ' Si algun usuario no tiene el elemento, se omitira sin error.'}
+          {action === 'removeContact' && ' Se borra cualquier contacto con ese numero (se comparan los ultimos 10 digitos; nombre y formato no importan).'}
           {isAdd && action === 'addContact' && ' Los numeros duplicados no se agregan (se comparan los ultimos 10 digitos; el nombre no importa).'}
           {isAdd && action === 'addApp' && ' Si algun usuario ya lo tiene, no se duplicara.'}
         </p>
@@ -294,13 +297,16 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
             autoFocus
           />
         ) : (
-          <>
-            <input className={styles.modalInput} placeholder="Nombre del contacto" value={contactName} onChange={(e) => setContactName(e.target.value)} autoFocus />
-            <input className={styles.modalInput} placeholder="Numero (ej: +521234567890)" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} style={{ marginTop: '0.6rem' }} />
-          </>
+          <input className={styles.modalInput} placeholder="Numero (ej: +52 55 6578 0799 o 5565780799)" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} autoFocus />
         )}
         {jsonError && <p className={styles.modalError}>{jsonError}</p>}
-        {result === 'ok' && (
+        {result === 'ok' && action === 'removeContact' && report ? (
+          <p className={report.usersWritten === 0 ? styles.modalError : styles.modalSuccess}>
+            {report.usersWritten === 0
+              ? 'Ningun usuario seleccionado tenia ese numero.'
+              : `Contacto eliminado en ${report.usersWritten} usuario${report.usersWritten !== 1 ? 's' : ''} (${report.removedCount} contacto${report.removedCount !== 1 ? 's' : ''}).`}
+          </p>
+        ) : result === 'ok' && (
           action === 'addContact' && report ? (
             <p className={report.usersWritten === 0 ? styles.modalError : styles.modalSuccess}>
               {report.usersWritten === 0
@@ -594,17 +600,34 @@ export default function Dashboard() {
       }
     }
 
+    // === removeContact: borra por numero normalizado (ultimos 10 digitos) SIN lecturas extra ===
+    // Los contactos ya estan en `selectedUsers`, asi que filtramos por phoneKey y reescribimos el
+    // array completo (arrayRemove exige match exacto de objeto y no sirve con distintos formatos).
+    // `contactRemovals`: id -> array de contactos que se conservan. Solo escribe si algo cambia.
+    const contactRemovals = new Map()
+    let removedCount = 0
+    if (action === 'removeContact') {
+      const targetKey = phoneKey(payload)
+      for (const id of ids) {
+        const existing = selectedUsers.get(id)?.contacts || []
+        const kept = existing.filter((c) => phoneKey(c.number) !== targetKey)
+        if (kept.length !== existing.length) { contactRemovals.set(id, kept); removedCount += existing.length - kept.length }
+      }
+    }
+
     // Solo escribimos en usuarios que realmente cambian.
     // payload is an array when adding (spread into arrayUnion), single item when removing.
-    // ponytail: arrayRemove(objeto) exige match exacto (name+number). Un match manual costaría
-    // 1 lectura por doc (mata la cuota gratis), así que se mantiene: el input debe coincidir tal cual.
-    const writeIds = action === 'addContact' ? [...contactAdds.keys()] : ids
+    const writeIds =
+      action === 'addContact' ? [...contactAdds.keys()] :
+      action === 'removeContact' ? [...contactRemovals.keys()] :
+      ids
     for (let i = 0; i < writeIds.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
       writeIds.slice(i, i + BATCH_SIZE).forEach((id) => {
-        const fieldValue = action === 'addContact'
-          ? arrayUnion(...contactAdds.get(id))
-          : isAdd ? arrayUnion(...payload) : arrayRemove(payload)
+        const fieldValue =
+          action === 'addContact' ? arrayUnion(...contactAdds.get(id)) :
+          action === 'removeContact' ? contactRemovals.get(id) :
+          isAdd ? arrayUnion(...payload) : arrayRemove(payload)
         batch.update(doc(db, 'users', id), { [field]: fieldValue })
       })
       await batch.commit()
@@ -614,6 +637,7 @@ export default function Dashboard() {
     const applyLocal = (u) => {
       const arr = u[field] || []
       if (action === 'addContact') return { ...u, contacts: [...arr, ...(contactAdds.get(u.id) || [])] }
+      if (action === 'removeContact') return { ...u, contacts: contactRemovals.get(u.id) ?? arr }
       const next = isAdd
         ? [...arr, ...payload.filter((p) => !arr.some((x) => JSON.stringify(x) === JSON.stringify(p)))]
         : arr.filter((x) => JSON.stringify(x) !== JSON.stringify(payload))
@@ -632,7 +656,7 @@ export default function Dashboard() {
       return m
     })
 
-    return { total: ids.length, usersWritten: writeIds.length, dupSkipped }
+    return { total: ids.length, usersWritten: writeIds.length, dupSkipped, removedCount }
   }
 
   return (
