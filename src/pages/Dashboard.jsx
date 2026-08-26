@@ -332,6 +332,18 @@ function BulkModal({ action, selectedCount, onConfirm, onClose }) {
 const USERS_CACHE_KEY = 'dashboard_users_cache'
 const USERS_CACHE_TTL = 5 * 60 * 1000
 const PAGE_SIZE = 20
+const LOAD_ALL_CHUNK = 500
+
+// ponytail: sessionStorage tiene ~5MB; con listas grandes setItem lanza QuotaExceededError.
+// Cachear es una optimizacion, no un requisito: si no cabe, se borra la cache y se sigue.
+// Techo: listas grandes dejan de cachearse (se relee Firebase al volver de un detalle).
+const writeUsersCache = (data, hasMore, lastId) => {
+  try {
+    sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data, hasMore, lastId }))
+  } catch {
+    sessionStorage.removeItem(USERS_CACHE_KEY)
+  }
+}
 const BATCH_SIZE = 499
 
 export default function Dashboard() {
@@ -393,7 +405,7 @@ export default function Dashboard() {
       const more = snap.docs.length === PAGE_SIZE
       const lastId = snap.docs[snap.docs.length - 1]?.id || null
       lastIdRef.current = lastId; setUsers(data); setHasMore(more)
-      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data, hasMore: more, lastId }))
+      writeUsersCache(data, more, lastId)
     } catch (err) { setError('No se pudo cargar la lista de usuarios.'); console.error(err) }
     finally { setLoading(false) }
   }
@@ -405,15 +417,15 @@ export default function Dashboard() {
       let lastDoc = null; let morePages = true
       while (morePages) {
         const q = lastDoc
-          ? query(collection(db, 'users'), orderBy(documentId()), startAfter(lastDoc), limit(PAGE_SIZE))
-          : query(collection(db, 'users'), orderBy(documentId()), limit(PAGE_SIZE))
+          ? query(collection(db, 'users'), orderBy(documentId()), startAfter(lastDoc), limit(LOAD_ALL_CHUNK))
+          : query(collection(db, 'users'), orderBy(documentId()), limit(LOAD_ALL_CHUNK))
         const snap = await getDocs(q)
         all = [...all, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))]
-        morePages = snap.docs.length === PAGE_SIZE
+        morePages = snap.docs.length === LOAD_ALL_CHUNK
         lastDoc = snap.docs[snap.docs.length - 1] || null
       }
       lastIdRef.current = null; setUsers(all); setHasMore(false)
-      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: all, hasMore: false, lastId: null }))
+      writeUsersCache(all, false, null)
     } catch (err) { setError('Error al cargar todos los usuarios.'); console.error(err) }
     finally { setLoadingAll(false) }
   }
@@ -462,7 +474,7 @@ export default function Dashboard() {
         lastIdRef.current = lastId
         setUsers((prev) => {
           const updated = [...prev, ...newData]
-          sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore: more, lastId }))
+          writeUsersCache(updated, more, lastId)
           return updated
         }); setHasMore(more)
       }
@@ -500,7 +512,7 @@ export default function Dashboard() {
   const handleUpdated = (userId, fields) => {
     setUsers((prev) => {
       const updated = prev.map((u) => u.id === userId ? { ...u, ...fields } : u)
-      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore, lastId: lastIdRef.current }))
+      writeUsersCache(updated, hasMore, lastIdRef.current)
       return updated
     })
     setSearchResults((prev) => prev.map((u) => u.id === userId ? { ...u, ...fields } : u))
@@ -509,7 +521,7 @@ export default function Dashboard() {
   const handleDeleted = (userId) => {
     setUsers((prev) => {
       const updated = prev.filter((u) => u.id !== userId)
-      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore, lastId: lastIdRef.current }))
+      writeUsersCache(updated, hasMore, lastIdRef.current)
       return updated
     })
     setSearchResults((prev) => prev.filter((u) => u.id !== userId))
@@ -609,7 +621,7 @@ export default function Dashboard() {
     }
     setUsers((prev) => {
       const updated = prev.map((u) => selectedIds.has(u.id) ? applyLocal(u) : u)
-      sessionStorage.setItem(USERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: updated, hasMore, lastId: lastIdRef.current }))
+      writeUsersCache(updated, hasMore, lastIdRef.current)
       return updated
     })
     setSearchResults((prev) => prev.map((u) => selectedIds.has(u.id) ? applyLocal(u) : u))
